@@ -6,7 +6,7 @@
         <title>Simulatore Esame Protetto</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
         <style>
-            /* --- STILI ORIGINALI CON ADATTAMENTI --- */
+            /* --- STILI BASE --- */
             * {
                 box-sizing: border-box;
                 margin: 0;
@@ -63,7 +63,7 @@
                 display: block;
             }
 
-            /* LOGIN STYLES */
+            /* LOGIN */
             .login-box {
                 max-width: 400px;
                 margin: 0 auto;
@@ -77,18 +77,15 @@
                 border-radius: 8px;
                 font-size: 1rem;
             }
-            input.login-field:focus {
-                border-color: #2c3e50;
-                outline: none;
-            }
 
-            /* DASHBOARD STYLES */
+            /* DASHBOARD DINAMICA */
             .subject-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 15px;
                 margin-top: 30px;
             }
+
             .subject-card {
                 background: #f8fafc;
                 border: 2px solid #e2e8f0;
@@ -101,17 +98,28 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                height: 100px;
-                font-size: 1.1rem;
+                flex-direction: column;
+                gap: 10px;
+                /* Modifica per nomi lunghi: altezza minima invece che fissa */
+                min-height: 110px;
+                word-break: break-word; /* Evita che parole lunghissime escano fuori */
             }
+
             .subject-card:hover {
                 border-color: #3498db;
                 background: #ebf5fb;
                 transform: translateY(-2px);
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             }
+            .subject-icon {
+                font-size: 2rem;
+            }
+            .subject-title {
+                font-size: 1.1rem;
+                line-height: 1.3;
+            }
 
-            /* QUIZ STYLES (Dal tuo codice) */
+            /* QUIZ */
             .progress-container {
                 width: 100%;
                 background-color: #e9ecef;
@@ -124,10 +132,10 @@
                 transition: width 0.3s;
             }
             .question-text {
-                font-size: 1.4rem;
+                font-size: 1.35rem;
                 color: #2c3e50;
                 margin-bottom: 30px;
-                line-height: 1.4;
+                line-height: 1.5;
                 font-family: 'Merriweather', serif;
                 text-align: left;
             }
@@ -145,7 +153,7 @@
                 display: flex;
                 align-items: flex-start;
             }
-            .option-btn:hover {
+            .option-btn:hover:not(:disabled) {
                 background-color: #f8fafc;
                 border-color: #cbd5e1;
             }
@@ -238,7 +246,7 @@
                         placeholder="nome.cognome@studenti.it"
                     />
 
-                    <label>Password (Codice di Accesso)</label>
+                    <label>Password</label>
                     <input
                         type="password"
                         id="password"
@@ -259,20 +267,7 @@
                     <strong id="days-left"></strong> giorni.
                 </p>
 
-                <div class="subject-grid">
-                    <div class="subject-card" onclick="loadExam('anatomia')">
-                        🦴 Anatomia
-                    </div>
-                    <div class="subject-card" onclick="loadExam('istologia')">
-                        🔬 Istologia
-                    </div>
-                    <div class="subject-card" onclick="loadExam('genetica')">
-                        🧬 Genetica
-                    </div>
-                    <div class="subject-card" onclick="loadExam('biologia')">
-                        🌿 Biologia
-                    </div>
-                </div>
+                <div id="subject-container" class="subject-grid"></div>
 
                 <button
                     onclick="logout()"
@@ -365,15 +360,14 @@
         <script>
             // --- CONFIGURAZIONE ---
             const SESSION_DAYS = 7;
-            const DATA_PATH = './data/'; // Cartella su GitHub dove metterai i file .enc
+            const DATA_PATH = './data/';
 
             // --- STATO ---
-            let sessionKey = null; // La password usata per decriptare
+            let sessionKey = null;
             let examQuestions = [];
             let currentQIndex = 0;
             let score = 0;
 
-            // --- INIT ---
             window.onload = checkSession;
 
             // --- GESTIONE LOGIN & SESSIONE ---
@@ -392,17 +386,17 @@
                 }
 
                 try {
-                    errorEl.innerText = 'Verifica credenziali in corso...';
+                    errorEl.innerText = 'Decodifica in corso...';
                     errorEl.style.display = 'block';
                     errorEl.style.background = '#e8f8f5';
                     errorEl.style.color = '#2c3e50';
 
-                    // 1. Scarica Utenti
+                    // 1. Scarica Utenti Criptati
                     const response = await fetch(
-                        DATA_PATH + 'users.enc?v=' + new Date().getTime()
-                    ); // Anti-cache
+                        DATA_PATH + 'utenti.enc?v=' + new Date().getTime()
+                    );
                     if (!response.ok)
-                        throw new Error('Database utenti non trovato.');
+                        throw new Error('File di configurazione non trovato.');
 
                     const encryptedText = await response.text();
 
@@ -417,41 +411,44 @@
 
                     if (!decryptedString) throw new Error('Password errata.');
 
-                    // 3. Controlla Email
-                    const userList = JSON.parse(decryptedString);
-                    // Supporta sia array semplice ["a@a.it"] che oggetto {"emails": ["a@a.it"]}
-                    const emails = Array.isArray(userList)
-                        ? userList
-                        : userList.emails || [];
+                    // 3. Analizza i dati
+                    const dataObj = JSON.parse(decryptedString);
+
+                    // Compatibilità: supporta array semplice o oggetto completo
+                    const emails = Array.isArray(dataObj)
+                        ? dataObj
+                        : dataObj.emails || [];
+                    const materie = dataObj.materie || [];
 
                     if (emails.includes(email)) {
-                        // Login OK
-                        saveSession(email, pass);
+                        // Login Successo: salva sessione e lista materie
+                        saveSession(email, pass, materie);
                     } else {
                         throw new Error('Email non autorizzata.');
                     }
                 } catch (e) {
                     console.error(e);
                     errorEl.innerText =
-                        'Accesso Negato: ' +
-                        (e.message || 'Errore sconosciuto');
+                        'Errore: ' + (e.message || 'Credenziali non valide');
                     errorEl.style.background = '#fadbd8';
                     errorEl.style.color = '#c0392b';
                 }
             }
 
-            function saveSession(email, key) {
+            function saveSession(email, key, materie) {
                 const now = new Date();
                 const expire =
                     now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000;
-                const data = { email, key, expire };
-                localStorage.setItem('exam_session_v1', JSON.stringify(data));
+
+                const data = { email, key, expire, materie };
+
+                localStorage.setItem('exam_session_v2', JSON.stringify(data));
                 checkSession();
             }
 
             function checkSession() {
                 const data = JSON.parse(
-                    localStorage.getItem('exam_session_v1')
+                    localStorage.getItem('exam_session_v2')
                 );
                 if (!data) {
                     showScreen('login-screen');
@@ -467,53 +464,76 @@
                 sessionKey = data.key;
                 document.getElementById('user-badge').innerText = data.email;
                 document.getElementById('user-badge').style.display = 'block';
-
-                const daysLeft = Math.ceil(
-                    (data.expire - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                document.getElementById('days-left').innerText = Math.ceil(
+                    (data.expire - new Date().getTime()) / 86400000
                 );
-                document.getElementById('days-left').innerText = daysLeft;
+
+                // Genera bottoni dinamicamente
+                generateSubjectButtons(data.materie);
 
                 showScreen('dashboard-screen');
             }
 
+            function generateSubjectButtons(materieList) {
+                const container = document.getElementById('subject-container');
+                container.innerHTML = '';
+
+                if (!materieList || materieList.length === 0) {
+                    container.innerHTML =
+                        '<p style="grid-column:1/-1; color:#777;">Nessuna materia configurata.</p>';
+                    return;
+                }
+
+                materieList.forEach((m) => {
+                    const div = document.createElement('div');
+                    div.className = 'subject-card';
+                    div.onclick = () => loadExam(m.file); // m.file sarà es: 'Anatomia_Tessuto_Osseo'
+
+                    const icon = m.icona || '📝';
+                    div.innerHTML = `<span class="subject-icon">${icon}</span><span class="subject-title">${m.titolo}</span>`;
+
+                    container.appendChild(div);
+                });
+            }
+
             function logout() {
-                localStorage.removeItem('exam_session_v1');
+                localStorage.removeItem('exam_session_v2');
                 location.reload();
             }
 
             // --- GESTIONE ESAME ---
-            async function loadExam(subject) {
+            async function loadExam(filename) {
                 try {
                     document.body.style.cursor = 'wait';
-                    // Scarica file materia
-                    const res = await fetch(`${DATA_PATH}${subject}.enc`);
-                    if (!res.ok) throw new Error('File materia non trovato.');
+                    // Scarica file specifico .enc
+                    const res = await fetch(`${DATA_PATH}${filename}.enc`);
+                    if (!res.ok)
+                        throw new Error(`File ${filename}.enc non trovato.`);
+
                     const encText = await res.text();
 
-                    // Decripta con la STESSA password del login
+                    // Decripta con la password di sessione
                     const bytes = CryptoJS.AES.decrypt(encText, sessionKey);
                     const jsonStr = bytes.toString(CryptoJS.enc.Utf8);
 
                     if (!jsonStr)
-                        throw new Error(
-                            'Impossibile decriptare la materia. Forse la password utenti e materia sono diverse?'
-                        );
+                        throw new Error('Errore decrittazione file materia.');
 
                     let questions = JSON.parse(jsonStr);
-
-                    // Shuffle e Prepara
+                    // Mischia e prendi 30 domande
                     examQuestions = questions
                         .sort(() => Math.random() - 0.5)
-                        .slice(0, 30); // Prendi max 30 domande random
+                        .slice(0, 30);
 
                     startQuiz();
                 } catch (e) {
-                    alert('Errore: ' + e.message);
+                    alert('Errore caricamento: ' + e.message);
                 } finally {
                     document.body.style.cursor = 'default';
                 }
             }
 
+            // --- UI QUIZ ---
             function startQuiz() {
                 score = 0;
                 currentQIndex = 0;
@@ -529,34 +549,30 @@
                 document.getElementById('score').innerText = score;
                 document.getElementById('question-text').innerText = q.domanda;
 
-                // Progress Bar
                 const pct = (currentQIndex / examQuestions.length) * 100;
                 document.getElementById('progress-bar').style.width = `${pct}%`;
 
-                // Reset UI
                 const container = document.getElementById('options-container');
                 container.innerHTML = '';
                 document.getElementById('feedback').style.display = 'none';
                 document.getElementById('next-btn').style.display = 'none';
 
-                // Opzioni
-                const letters = Object.keys(q.opzioni).sort();
-                letters.forEach((l) => {
-                    const btn = document.createElement('button');
-                    btn.className = 'option-btn';
-                    btn.innerHTML = `<span class="option-letter">${l}</span> ${q.opzioni[l]}`;
-                    btn.onclick = () =>
-                        checkAnswer(l, q.risposta_corretta, btn);
-                    container.appendChild(btn);
-                });
+                Object.keys(q.opzioni)
+                    .sort()
+                    .forEach((l) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'option-btn';
+                        btn.innerHTML = `<span class="option-letter">${l}</span> ${q.opzioni[l]}`;
+                        btn.onclick = () =>
+                            checkAnswer(l, q.risposta_corretta, btn);
+                        container.appendChild(btn);
+                    });
             }
 
             function checkAnswer(selected, correct, btn) {
-                // Blocca click
                 document
                     .querySelectorAll('.option-btn')
                     .forEach((b) => (b.disabled = true));
-
                 const fb = document.getElementById('feedback');
                 fb.style.display = 'block';
 
@@ -568,18 +584,16 @@
                     fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
                 } else {
                     btn.classList.add('wrong');
-                    // Evidenzia corretta
                     document.querySelectorAll('.option-btn').forEach((b) => {
                         if (
                             b.innerHTML.includes(
                                 `<span class="option-letter">${correct}</span>`
                             )
-                        ) {
+                        )
                             b.classList.add('correct');
-                        }
                     });
                     fb.style.background = '#fee2e2';
-                    fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> La risposta giusta era: <strong>${correct}</strong>`;
+                    fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correct}</strong>`;
                 }
                 document.getElementById('next-btn').style.display =
                     'inline-block';
@@ -587,11 +601,8 @@
 
             function nextQuestion() {
                 currentQIndex++;
-                if (currentQIndex < examQuestions.length) {
-                    loadQuestion();
-                } else {
-                    showResults();
-                }
+                if (currentQIndex < examQuestions.length) loadQuestion();
+                else showResults();
             }
 
             function showResults() {
@@ -599,13 +610,13 @@
                 document.getElementById(
                     'final-score'
                 ).innerText = `${score} / ${examQuestions.length}`;
-
                 const pct = (score / examQuestions.length) * 100;
-                let msg = '';
-                if (pct >= 90) msg = 'Risultato Eccellente! 🏆';
-                else if (pct >= 60) msg = 'Esame Superato. 👍';
-                else msg = 'Devi studiare di più. 📉';
-
+                let msg =
+                    pct >= 90
+                        ? 'Risultato Eccellente! 🏆'
+                        : pct >= 60
+                        ? 'Esame Superato. 👍'
+                        : 'Bisogna studiare di più. 📉';
                 document.getElementById('final-msg').innerText = msg;
             }
 
@@ -622,4 +633,3 @@
         </script>
     </body>
 </html>
-
