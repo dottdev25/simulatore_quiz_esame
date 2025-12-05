@@ -144,11 +144,11 @@
         let examQuestions = [];
         let currentQIndex = 0;
         let score = 0;
-        let wrongAnswers = []; // Array per salvare gli errori
+        let wrongAnswers = []; 
 
         window.onload = checkSession;
 
-        // --- LOGIN & SESSIONE (Invariato) ---
+        // --- LOGIN & SESSIONE ---
         async function login() {
             const email = document.getElementById('email').value.trim().toLowerCase();
             const pass = document.getElementById('password').value;
@@ -234,57 +234,64 @@
             document.getElementById('q-counter').innerText = `Domanda ${currentQIndex + 1} di ${examQuestions.length}`;
             document.getElementById('score').innerText = score;
             
-            // Render Domanda con ID
-            document.getElementById('question-text').innerHTML = 
-                `<span class="question-id">#${q.id}</span>${q.domanda}`;
-            
+            document.getElementById('question-text').innerHTML = `<span class="question-id">#${q.id}</span>${q.domanda}`;
             document.getElementById('progress-bar').style.width = `${((currentQIndex)/examQuestions.length)*100}%`;
 
             const container = document.getElementById('options-container'); container.innerHTML = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('next-btn').style.display = 'none';
 
-            // Mescola le chiavi (A, B, C...) per randomizzare l'ordine visuale
-            let keys = Object.keys(q.opzioni);
-            shuffleArray(keys); 
+            // 1. Prendi le chiavi originali (es: A, B, C, D)
+            let logicalKeys = Object.keys(q.opzioni);
+            
+            // 2. Mescolale a caso (es: C, A, D, B) -> Il contenuto si sposta!
+            shuffleArray(logicalKeys); 
 
-            keys.forEach(l => {
+            // 3. Renderizza usando un indice visuale fisso (A, B, C...)
+            logicalKeys.forEach((logicalKey, index) => {
+                // Calcola la lettera visuale (0->A, 1->B, 2->C...)
+                const visualLabel = String.fromCharCode(65 + index);
+                
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                // Mostra lettera originale o solo testo? Meglio mostrare lettera per riferimento
-                btn.innerHTML = `<span class="option-letter">${l}</span> ${q.opzioni[l]}`;
-                btn.onclick = () => checkAnswer(l, q.risposta_corretta, btn);
+                
+                // Mostra: Lettera Visuale (A, B, C) + Testo Mescolato
+                btn.innerHTML = `<span class="option-letter">${visualLabel}</span> ${q.opzioni[logicalKey]}`;
+                
+                // Al click: controlliamo la chiave LOGICA (quella del JSON)
+                btn.onclick = () => checkAnswer(logicalKey, q.risposta_corretta, btn);
                 container.appendChild(btn);
             });
         }
 
-        function checkAnswer(selected, correct, btn) {
+        function checkAnswer(selectedLogicalKey, correctLogicalKey, btn) {
             document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
             const fb = document.getElementById('feedback'); fb.style.display = 'block';
             
             const q = examQuestions[currentQIndex];
 
-            if(selected === correct) {
+            if(selectedLogicalKey === correctLogicalKey) {
                 score++; document.getElementById('score').innerText = score;
                 btn.classList.add('correct');
                 fb.style.background = '#d1fae5';
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
             } else {
                 btn.classList.add('wrong');
-                // Evidenzia quella giusta
-                document.querySelectorAll('.option-btn').forEach(b => {
-                    if(b.innerHTML.includes(`<span class="option-letter">${correct}</span>`)) b.classList.add('correct');
-                });
-                fb.style.background = '#fee2e2';
-                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correct}</strong>`;
                 
-                // Salva errore per report finale
+                // Evidenzia quella giusta cercando nel testo dei bottoni (perché l'ordine è cambiato)
+                const correctText = q.opzioni[correctLogicalKey];
+                document.querySelectorAll('.option-btn').forEach(b => {
+                    if(b.innerText.includes(correctText)) b.classList.add('correct');
+                });
+
+                fb.style.background = '#fee2e2';
+                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correctText}</strong>`;
+                
                 wrongAnswers.push({
                     id: q.id,
                     domanda: q.domanda,
-                    rispostaData: q.opzioni[selected],
-                    rispostaCorretta: q.opzioni[correct],
-                    letteraCorretta: correct
+                    rispostaData: q.opzioni[selectedLogicalKey],
+                    rispostaCorretta: q.opzioni[correctLogicalKey]
                 });
             }
             document.getElementById('next-btn').style.display = 'inline-block';
@@ -302,10 +309,9 @@
             const pct = (score / examQuestions.length) * 100;
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
-            // Gestione pulsante errori
             const btnErr = document.getElementById('btn-errors');
             const report = document.getElementById('error-report');
-            report.style.display = 'none'; // Nascondi report se aperto prima
+            report.style.display = 'none';
             
             if(wrongAnswers.length > 0) {
                 btnErr.style.display = 'inline-block';
@@ -327,7 +333,7 @@
                         <div class="error-item">
                             <span class="error-q"><small>#${item.id}</small> ${item.domanda}</span>
                             <div class="error-ans">❌ Tua risposta: ${item.rispostaData}</div>
-                            <div class="correct-ans">✅ Corretta (${item.letteraCorretta}): ${item.rispostaCorretta}</div>
+                            <div class="correct-ans">✅ Corretta: ${item.rispostaCorretta}</div>
                         </div>`;
                 });
                 window.scrollTo(0, document.body.scrollHeight);
