@@ -40,6 +40,15 @@
         .progress-container { width: 100%; background-color: #e9ecef; height: 8px; }
         .progress-bar { height: 100%; background-color: #27ae60; width: 0%; transition: width 0.3s; }
         
+        /* Modifiche per visualizzazione Argomento */
+        .question-meta { margin-bottom: 15px; font-size: 0.85rem; text-align: left; }
+        .topic-badge { 
+            background-color: #e1f5fe; color: #0277bd; 
+            padding: 4px 8px; border-radius: 4px; 
+            font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+            display: inline-block; margin-right: 10px;
+        }
+
         .question-text { font-size: 1.35rem; color: #2c3e50; margin-bottom: 30px; line-height: 1.5; font-family: 'Merriweather', serif; text-align: left; }
         .question-id { color: #aaa; font-size: 0.7em; margin-right: 8px; vertical-align: middle; }
 
@@ -106,6 +115,8 @@
                     <span>Punti: <span id="score">0</span></span>
                 </div>
                 
+                <div id="question-meta" class="question-meta"></div>
+
                 <div id="question-text" class="question-text"></div>
                 
                 <div id="options-container"></div>
@@ -234,31 +245,28 @@
             document.getElementById('q-counter').innerText = `Domanda ${currentQIndex + 1} di ${examQuestions.length}`;
             document.getElementById('score').innerText = score;
             
+            // 1. Mostra Argomento (Badge)
+            const topic = q.argomento || "Generale"; // Fallback se manca nel JSON
+            document.getElementById('question-meta').innerHTML = `<span class="topic-badge">${topic}</span>`;
+
+            // 2. Mostra Domanda con ID
             document.getElementById('question-text').innerHTML = `<span class="question-id">#${q.id}</span>${q.domanda}`;
+            
             document.getElementById('progress-bar').style.width = `${((currentQIndex)/examQuestions.length)*100}%`;
 
             const container = document.getElementById('options-container'); container.innerHTML = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('next-btn').style.display = 'none';
 
-            // 1. Prendi le chiavi originali (es: A, B, C, D)
+            // 3. Mescola risposte mantenendo ordine visuale
             let logicalKeys = Object.keys(q.opzioni);
-            
-            // 2. Mescolale a caso (es: C, A, D, B) -> Il contenuto si sposta!
             shuffleArray(logicalKeys); 
 
-            // 3. Renderizza usando un indice visuale fisso (A, B, C...)
             logicalKeys.forEach((logicalKey, index) => {
-                // Calcola la lettera visuale (0->A, 1->B, 2->C...)
                 const visualLabel = String.fromCharCode(65 + index);
-                
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                
-                // Mostra: Lettera Visuale (A, B, C) + Testo Mescolato
                 btn.innerHTML = `<span class="option-letter">${visualLabel}</span> ${q.opzioni[logicalKey]}`;
-                
-                // Al click: controlliamo la chiave LOGICA (quella del JSON)
                 btn.onclick = () => checkAnswer(logicalKey, q.risposta_corretta, btn);
                 container.appendChild(btn);
             });
@@ -277,18 +285,17 @@
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
             } else {
                 btn.classList.add('wrong');
-                
-                // Evidenzia quella giusta cercando nel testo dei bottoni (perché l'ordine è cambiato)
+                // Evidenzia corretta
                 const correctText = q.opzioni[correctLogicalKey];
                 document.querySelectorAll('.option-btn').forEach(b => {
                     if(b.innerText.includes(correctText)) b.classList.add('correct');
                 });
-
                 fb.style.background = '#fee2e2';
                 fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correctText}</strong>`;
                 
                 wrongAnswers.push({
                     id: q.id,
+                    argomento: q.argomento || "Generale",
                     domanda: q.domanda,
                     rispostaData: q.opzioni[selectedLogicalKey],
                     rispostaCorretta: q.opzioni[correctLogicalKey]
@@ -331,7 +338,7 @@
                 wrongAnswers.forEach(item => {
                     list.innerHTML += `
                         <div class="error-item">
-                            <span class="error-q"><small>#${item.id}</small> ${item.domanda}</span>
+                            <span class="error-q"><small>[${item.argomento}] #${item.id}</small> ${item.domanda}</span>
                             <div class="error-ans">❌ Tua risposta: ${item.rispostaData}</div>
                             <div class="correct-ans">✅ Corretta: ${item.rispostaCorretta}</div>
                         </div>`;
