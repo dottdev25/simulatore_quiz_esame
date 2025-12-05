@@ -183,7 +183,7 @@
             // Se il tasto avanti è visibile, blocca altre risposte
             if (nextBtn.style.display !== 'none') return;
 
-            // Mappatura tasti 1-4 o A-D
+            // Mappatura tasti 1-5 o A-E
             const options = document.querySelectorAll('.option-btn');
             let index = -1;
 
@@ -191,6 +191,7 @@
             else if (['2', 'B'].includes(key)) index = 1;
             else if (['3', 'C'].includes(key)) index = 2;
             else if (['4', 'D'].includes(key)) index = 3;
+            else if (['5', 'E'].includes(key)) index = 4;
 
             // Se l'indice è valido e il bottone esiste, cliccalo
             if (index >= 0 && index < options.length) {
