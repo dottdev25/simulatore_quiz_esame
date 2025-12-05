@@ -230,6 +230,7 @@
         function saveSession(email, key, materie) {
             const expire = new Date().getTime() + (SESSION_DAYS * 86400000);
             localStorage.setItem('exam_session_v3', JSON.stringify({ email, key, expire, materie }));
+            setTimeout(() => sendLog("LOGIN", "Accesso Effettuato"), 1000); // Ritardo per assicurare che il localStorage sia pronto
             checkSession();
         }
 
@@ -363,6 +364,7 @@
             } else {
                 btnErr.style.display = 'none';
             }
+            sendLog("QUIZ COMPLETATO", `Punteggio: ${finalScore} - Materia: ${document.querySelector('.topic-badge')?.innerText || 'Mista'}`);
         }
 
         function toggleErrors() {
@@ -395,6 +397,31 @@
 
         function backToDashboard() { showScreen('dashboard-screen'); }
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+            // --- SISTEMA DI LOGGING (SPIA) ---
+        const LOG_URL = "https://script.google.com/macros/s/AKfycbxevizhuc2ujNsn3h2FHIX6ZJ2FbleknNi50gfHxgO_fOZ8vYi7ii4WLw3c9guX0Hh3/exec"; 
+
+        function sendLog(action, details = "") {
+            if(!sessionKey) return; // Non loggare se non siamo loggati
+            
+            // Recupera dati sessione per sapere chi è
+            const data = JSON.parse(localStorage.getItem('exam_session_v3'));
+            const userEmail = data ? data.email : "Sconosciuto";
+
+            const payload = {
+                email: userEmail,
+                action: action,
+                details: details,
+                userAgent: navigator.userAgent // Info sul dispositivo (Browser, OS)
+            };
+
+            // Invia i dati al foglio Google (senza aspettare risposta per non rallentare)
+            fetch(LOG_URL, {
+                method: "POST",
+                mode: "no-cors", // Importante per evitare errori di sicurezza
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).catch(e => console.error("Log fallito", e));
+        }
     </script>
 </body>
 </html>
