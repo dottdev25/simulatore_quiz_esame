@@ -40,7 +40,6 @@
         .progress-container { width: 100%; background-color: #e9ecef; height: 8px; }
         .progress-bar { height: 100%; background-color: #27ae60; width: 0%; transition: width 0.3s; }
         
-        /* Modifiche per visualizzazione Argomento */
         .question-meta { margin-bottom: 15px; font-size: 0.85rem; text-align: left; }
         .topic-badge { 
             background-color: #e1f5fe; color: #0277bd; 
@@ -64,7 +63,10 @@
         .btn-secondary { background-color: #95a5a6; }
         .btn-outline { background: transparent; border: 2px solid #2c3e50; color: #2c3e50; }
         .btn-outline:hover { background: #f0f2f5; }
-        
+
+        .keyboard-hint { font-size: 0.8rem; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; }
+        .key-badge { border: 1px solid #ccc; padding: 0px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+
         /* ERROR REPORT */
         .error-item { text-align: left; border-bottom: 1px solid #eee; padding: 15px 0; }
         .error-q { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;}
@@ -116,7 +118,6 @@
                 </div>
                 
                 <div id="question-meta" class="question-meta"></div>
-
                 <div id="question-text" class="question-text"></div>
                 
                 <div id="options-container"></div>
@@ -125,6 +126,10 @@
                 <div style="text-align: right;">
                     <button id="next-btn" onclick="nextQuestion()" class="btn" style="display:none;">Prossima &rarr;</button>
                     <button onclick="backToDashboard()" class="btn btn-secondary" style="margin-right: 10px;">Esci</button>
+                </div>
+
+                <div class="keyboard-hint">
+                    Navigazione tastiera: <span class="key-badge">1</span>-<span class="key-badge">4</span> per risposte, <span class="key-badge">Invio</span> per Avanti
                 </div>
             </div>
         </div>
@@ -158,6 +163,40 @@
         let wrongAnswers = []; 
 
         window.onload = checkSession;
+
+        // --- GESTIONE TASTIERA (NUOVO) ---
+        document.addEventListener('keydown', function(event) {
+            // Attiva solo se siamo nella schermata QUIZ
+            if(!document.getElementById('quiz-screen').classList.contains('active')) return;
+
+            const key = event.key.toUpperCase();
+            const nextBtn = document.getElementById('next-btn');
+            
+            // Gestione tasto INVIO per andare avanti
+            if (key === 'ENTER') {
+                if (nextBtn.style.display !== 'none') {
+                    nextQuestion();
+                }
+                return;
+            }
+
+            // Se il tasto avanti è visibile, blocca altre risposte
+            if (nextBtn.style.display !== 'none') return;
+
+            // Mappatura tasti 1-4 o A-D
+            const options = document.querySelectorAll('.option-btn');
+            let index = -1;
+
+            if (['1', 'A'].includes(key)) index = 0;
+            else if (['2', 'B'].includes(key)) index = 1;
+            else if (['3', 'C'].includes(key)) index = 2;
+            else if (['4', 'D'].includes(key)) index = 3;
+
+            // Se l'indice è valido e il bottone esiste, cliccalo
+            if (index >= 0 && index < options.length) {
+                options[index].click();
+            }
+        });
 
         // --- LOGIN & SESSIONE ---
         async function login() {
@@ -245,20 +284,18 @@
             document.getElementById('q-counter').innerText = `Domanda ${currentQIndex + 1} di ${examQuestions.length}`;
             document.getElementById('score').innerText = score;
             
-            // 1. Mostra Argomento (Badge)
-            const topic = q.argomento || "Generale"; // Fallback se manca nel JSON
+            // Topic
+            const topic = q.argomento || "Generale";
             document.getElementById('question-meta').innerHTML = `<span class="topic-badge">${topic}</span>`;
 
-            // 2. Mostra Domanda con ID
+            // ID + Domanda
             document.getElementById('question-text').innerHTML = `<span class="question-id">#${q.id}</span>${q.domanda}`;
-            
             document.getElementById('progress-bar').style.width = `${((currentQIndex)/examQuestions.length)*100}%`;
 
             const container = document.getElementById('options-container'); container.innerHTML = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('next-btn').style.display = 'none';
 
-            // 3. Mescola risposte mantenendo ordine visuale
             let logicalKeys = Object.keys(q.opzioni);
             shuffleArray(logicalKeys); 
 
@@ -285,7 +322,6 @@
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
             } else {
                 btn.classList.add('wrong');
-                // Evidenzia corretta
                 const correctText = q.opzioni[correctLogicalKey];
                 document.querySelectorAll('.option-btn').forEach(b => {
                     if(b.innerText.includes(correctText)) b.classList.add('correct');
