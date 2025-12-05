@@ -399,7 +399,7 @@
 
                     // 1. Scarica Utenti
                     const response = await fetch(
-                        DATA_PATH + 'utenti.enc?v=' + new Date().getTime()
+                        DATA_PATH + 'users.enc?v=' + new Date().getTime()
                     ); // Anti-cache
                     if (!response.ok)
                         throw new Error('Database utenti non trovato.');
@@ -622,3 +622,4 @@
         </script>
     </body>
 </html>
+
