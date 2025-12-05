@@ -541,33 +541,33 @@
                 loadQuestion();
             }
 
-            function loadQuestion() {
-                const q = examQuestions[currentQIndex];
-                document.getElementById('q-counter').innerText = `Domanda ${
-                    currentQIndex + 1
-                } di ${examQuestions.length}`;
-                document.getElementById('score').innerText = score;
-                document.getElementById('question-text').innerText = q.domanda;
+function loadQuestion() {
+            const q = examQuestions[currentQIndex];
+            document.getElementById('q-counter').innerText = `Domanda ${currentQIndex + 1} di ${examQuestions.length}`;
+            document.getElementById('score').innerText = score;
+            
+            // Aggiunta visualizzazione ID ---
+            document.getElementById('question-text').innerHTML = 
+                `<span style="color:#aaa; font-size:0.7em; margin-right:8px;">#${q.id}</span>` + 
+                q.domanda;
+            // ------------------------------------------------
+            
+            const pct = ((currentQIndex) / examQuestions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${pct}%`;
 
-                const pct = (currentQIndex / examQuestions.length) * 100;
-                document.getElementById('progress-bar').style.width = `${pct}%`;
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'none';
 
-                const container = document.getElementById('options-container');
-                container.innerHTML = '';
-                document.getElementById('feedback').style.display = 'none';
-                document.getElementById('next-btn').style.display = 'none';
-
-                Object.keys(q.opzioni)
-                    .sort()
-                    .forEach((l) => {
-                        const btn = document.createElement('button');
-                        btn.className = 'option-btn';
-                        btn.innerHTML = `<span class="option-letter">${l}</span> ${q.opzioni[l]}`;
-                        btn.onclick = () =>
-                            checkAnswer(l, q.risposta_corretta, btn);
-                        container.appendChild(btn);
-                    });
-            }
+            Object.keys(q.opzioni).sort().forEach(l => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerHTML = `<span class="option-letter">${l}</span> ${q.opzioni[l]}`;
+                btn.onclick = () => checkAnswer(l, q.risposta_corretta, btn);
+                container.appendChild(btn);
+            });
+        }
 
             function checkAnswer(selected, correct, btn) {
                 document
