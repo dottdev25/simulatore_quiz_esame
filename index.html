@@ -119,7 +119,7 @@
         const DATA_PATH = './data/';
         
         // --- LOGGER GOOGLE SCRIPT ---
-        const LOG_URL = "https://script.google.com/macros/s/AKfycbxevizhuc2ujNsn3h2FHIX6ZJ2FbleknNi50gfHxgO_fOZ8vYi7ii4WLw3c9guX0Hh3/exec"; 
+        const LOG_URL = null; 
 
         let sessionMasterKey = null;
         let examQuestions = [];
@@ -170,6 +170,9 @@
                 if(!response.ok) throw new Error("Database utenti non accessibile.");
                 
                 const db = await response.json();
+
+                // 2.5 Scarica url per log
+                if(db.config && db.config.logUrl) LOG_URL = db.config.logUrl;
                 
                 // 3. Cerca l'utente tramite HASH (non tramite email in chiaro)
                 const userRecord = db.users.find(u => u.id === emailHash);
