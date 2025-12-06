@@ -461,6 +461,21 @@
         function backToDashboard() { showScreen('dashboard-screen'); }
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
+        // --- GESTIONE ID DISPOSITIVO PERSISTENTE ---
+        function getOrCreateDeviceId() {
+            // Cerca se esiste già un ID salvato
+            let deviceId = localStorage.getItem('exam_device_id');
+            
+            // Se non esiste (è la prima volta che entra), crealo
+            if (!deviceId) {
+                // Genera un UUID casuale (es. "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+                deviceId = crypto.randomUUID(); 
+                localStorage.setItem('exam_device_id', deviceId);
+            }
+            
+            return deviceId;
+        }
+
         function sendLog(action, details = "") {
             const sessionRaw = localStorage.getItem('exam_session_v4');
             if (!sessionRaw && action !== "LOGIN") return;
@@ -477,15 +492,21 @@
 
             if(!LOG_URL) return;
 
+            // --- RECUPERA L'ID UNIVOCO ---
+            const uniqueDeviceId = getOrCreateDeviceId();
+
             const payload = {
                 email: userEmail,
                 action: action,
                 details: details,
-                userAgent: navigator.userAgent
+                userAgent: navigator.userAgent,
+                deviceId: uniqueDeviceId // <--- AGGIUNTO AL PACCHETTO
             };
 
             fetch(LOG_URL, {
-                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             }).catch(e => console.error("Log fallito", e));
         }
