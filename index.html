@@ -296,46 +296,68 @@
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('next-btn').style.display = 'none';
 
+            // 1. Prendi le chiavi logiche (A, B, C...) e MESCOLALE
             let logicalKeys = Object.keys(q.opzioni);
             shuffleArray(logicalKeys); 
 
+            // 2. Crea i bottoni
             logicalKeys.forEach((logicalKey, index) => {
+                // Calcola l'etichetta VISIVA (sempre A, B, C, D in ordine dall'alto)
                 const visualLabel = String.fromCharCode(65 + index);
+                
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
+                
+                // --- PUNTO CHIAVE: Salviamo la chiave vera (es. "B") in un attributo nascosto ---
+                btn.dataset.logicalKey = logicalKey; 
+                
                 btn.innerHTML = `<span class="option-letter">${visualLabel}</span> ${q.opzioni[logicalKey]}`;
+                
+                // Passiamo la chiave logica al controllo
                 btn.onclick = () => checkAnswer(logicalKey, q.risposta_corretta, btn);
                 container.appendChild(btn);
             });
         }
 
         function checkAnswer(selectedLogicalKey, correctLogicalKey, btn) {
+            // Disabilita tutti
             document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-            const fb = document.getElementById('feedback'); fb.style.display = 'block';
             
+            const fb = document.getElementById('feedback'); fb.style.display = 'block';
             const q = examQuestions[currentQIndex];
 
             if(selectedLogicalKey === correctLogicalKey) {
+                // GIUSTO
                 score++; document.getElementById('score').innerText = score;
                 btn.classList.add('correct');
                 fb.style.background = '#d1fae5';
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
                 
-                // --- NUOVO: Se rispondo correttamente, rimuovo l'errore dalla storia (se c'era) ---
                 updateErrorHistory(q.id, false); 
 
             } else {
+                // SBAGLIATO
                 btn.classList.add('wrong');
+                
+                // --- FIX BUG VISIVO (CON SHUFFLE) ---
+                // Invece di cercare il testo, cerchiamo il bottone che ha l'attributo nascosto uguale alla risposta corretta
+                const correctBtn = document.querySelector(`.option-btn[data-logical-key="${correctLogicalKey}"]`);
+                if(correctBtn) correctBtn.classList.add('correct');
+
                 const correctText = q.opzioni[correctLogicalKey];
-                document.querySelectorAll('.option-btn').forEach(b => {
-                    if(b.innerText.includes(correctText)) b.classList.add('correct');
-                });
                 fb.style.background = '#fee2e2';
-                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correctText}</strong>`;
                 
-                wrongAnswers.push({ id: q.id, argomento: q.argomento || "Generale", domanda: q.domanda, rispostaData: q.opzioni[selectedLogicalKey], rispostaCorretta: q.opzioni[correctLogicalKey] });
+                // Mostriamo il testo della risposta corretta (più utile della lettera, visto che sono mescolate)
+                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> La risposta giusta era: <br><em>${correctText}</em>`;
                 
-                // --- NUOVO: Salvo l'errore nella storia ---
+                wrongAnswers.push({ 
+                    id: q.id, 
+                    argomento: q.argomento || "Generale", 
+                    domanda: q.domanda, 
+                    rispostaData: q.opzioni[selectedLogicalKey], 
+                    rispostaCorretta: q.opzioni[correctLogicalKey] 
+                });
+                
                 updateErrorHistory(q.id, true);
             }
             document.getElementById('next-btn').style.display = 'inline-block';
