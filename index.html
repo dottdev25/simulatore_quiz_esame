@@ -1,4 +1,119 @@
-<script>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Esame Protetto</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        /* --- STILI (Invariati) --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .app-container { width: 100%; max-width: 800px; background-color: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border-top: 8px solid #2c3e50; min-height: 400px; }
+        header { background-color: #2c3e50; color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .badge { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
+        .screen { padding: 40px; text-align: center; display: none; animation: fadeIn 0.4s; }
+        .screen.active { display: block; }
+        .login-box { max-width: 400px; margin: 0 auto; text-align: left; }
+        input.login-field { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
+        .subject-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px; }
+        .subject-card { background: #f8fafc; border: 2px solid #e2e8f0; padding: 20px; border-radius: 10px; cursor: pointer; transition: 0.2s; font-weight: bold; color: #2c3e50; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 110px; word-break: break-word; }
+        .subject-card:hover { border-color: #3498db; background: #ebf5fb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .subject-icon { font-size: 2rem; }
+        .progress-container { width: 100%; background-color: #e9ecef; height: 8px; }
+        .progress-bar { height: 100%; background-color: #27ae60; width: 0%; transition: width 0.3s; }
+        .question-meta { margin-bottom: 15px; font-size: 0.85rem; text-align: left; }
+        .topic-badge { background-color: #e1f5fe; color: #0277bd; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-right: 10px; }
+        .question-text { font-size: 1.35rem; color: #2c3e50; margin-bottom: 30px; line-height: 1.5; font-family: 'Merriweather', serif; text-align: left; }
+        .question-id { color: #aaa; font-size: 0.7em; margin-right: 8px; vertical-align: middle; }
+        .option-btn { width: 100%; text-align: left; padding: 15px 20px; background-color: white; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; color: #4a5568; cursor: pointer; margin-bottom: 10px; display: flex; align-items: flex-start; }
+        .option-btn:hover:not(:disabled) { background-color: #f8fafc; border-color: #cbd5e1; }
+        .option-letter { background-color: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1; margin-right: 15px; font-weight: bold; min-width: 30px; text-align: center; }
+        .option-btn.correct { background-color: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
+        .option-btn.wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; background-color: #2c3e50; color: white; margin-top: 20px; }
+        .btn:hover { background-color: #34495e; }
+        .btn-secondary { background-color: #95a5a6; }
+        .btn-outline { background: transparent; border: 2px solid #2c3e50; color: #2c3e50; }
+        .keyboard-hint { font-size: 0.8rem; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; }
+        .key-badge { border: 1px solid #ccc; padding: 0px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; background: #fff; }
+        .error-msg { color: #c0392b; background: #fadbd8; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
+        .error-item { text-align: left; border-bottom: 1px solid #eee; padding: 15px 0; }
+        .error-q { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;}
+        .error-ans { font-size: 0.9rem; color: #c0392b; }
+        .correct-ans { font-size: 0.9rem; color: #27ae60; font-weight: bold; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <div>
+                <h1>Simulatore Esame</h1>
+                <p style="font-size: 0.8rem; opacity: 0.8;">Area Riservata Studenti</p>
+            </div>
+            <div id="user-badge" class="badge" style="display:none;"></div>
+        </header>
+
+        <div id="login-screen" class="screen active">
+            <h2>Accesso Sicuro</h2>
+            <p style="color: #666; margin-bottom: 20px;">Inserisci email e PIN personale.</p>
+            <div class="login-box">
+                <div id="login-error" class="error-msg"></div>
+                <label>Email Istituzionale</label>
+                <input type="email" id="email" class="login-field" placeholder="nome.cognome@studenti.it">
+                
+                <label>PIN Personale (5 cifre)</label>
+                <input type="password" id="pin" class="login-field" placeholder="es. 12345" maxlength="5">
+                
+                <button onclick="login()" class="btn" style="width: 100%;">Verifica e Accedi</button>
+            </div>
+        </div>
+
+        <div id="dashboard-screen" class="screen">
+            <h2>Scegli la Materia</h2>
+            <p>Sessione valida per altri <strong id="days-left"></strong> giorni.</p>
+            <div id="subject-container" class="subject-grid"></div>
+            <button onclick="logout()" class="btn btn-secondary" style="margin-top: 40px;">Disconnetti</button>
+        </div>
+
+        <div id="quiz-screen" class="screen" style="text-align: left;">
+            <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+            <div style="padding-top: 20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; color:#7f8c8d; font-weight:bold;">
+                    <span id="q-counter">Domanda 1</span>
+                    <span>Punti: <span id="score">0</span></span>
+                </div>
+                <div id="question-meta" class="question-meta"></div>
+                <div id="question-text" class="question-text"></div>
+                <div id="options-container"></div>
+                <div id="feedback" style="margin-top:20px; padding:15px; border-radius:8px; display:none;"></div>
+                <div style="text-align: right;">
+                    <button id="next-btn" onclick="nextQuestion()" class="btn" style="display:none;">Prossima &rarr;</button>
+                    <button onclick="backToDashboard()" class="btn btn-secondary" style="margin-right: 10px;">Esci</button>
+                </div>
+                <div class="keyboard-hint">Navigazione: <span class="key-badge">1</span>-<span class="key-badge">9</span> scelte, <span class="key-badge">Invio</span> avanti</div>
+            </div>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <h2>Esame Terminato</h2>
+            <div style="font-size: 3rem; font-weight: bold; margin: 20px 0; color: #2c3e50;">
+                <span id="final-score"></span>
+            </div>
+            <div id="final-msg" style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:20px; font-style:italic;"></div>
+            <button onclick="toggleErrors()" id="btn-errors" class="btn btn-outline" style="display:none; margin-bottom: 10px;">🔍 Vedi Errori</button>
+            <br>
+            <button onclick="backToDashboard()" class="btn">Torna alla Dashboard</button>
+            <div id="error-report" style="display: none; margin-top: 30px; border-top: 2px solid #eee;">
+                <h3 style="margin-top: 20px; color: #c0392b;">Riepilogo Errori</h3>
+                <div id="error-list"></div>
+            </div>
+        </div>
+    </div>
+    <script>
         const SESSION_DAYS = 7;
         const DATA_PATH = './data/';
         
@@ -353,3 +468,5 @@
             }).catch(e => console.error("Log fallito", e));
         }
     </script>
+    </body>
+</html>
