@@ -126,6 +126,7 @@
         let currentQIndex = 0;
         let score = 0;
         let wrongAnswers = []; 
+        let currentExamTitle = "";
 
         window.onload = checkSession;
 
@@ -231,7 +232,7 @@
             if (!list || list.length === 0) { container.innerHTML = '<p>Nessuna materia configurata.</p>'; return; }
             list.forEach(m => {
                 const div = document.createElement('div'); div.className = 'subject-card';
-                div.onclick = () => loadExam(m.file);
+                div.onclick = () => loadExam(m.file, m.titolo);
                 div.innerHTML = `<span class="subject-icon">${m.icona||'📝'}</span><span class="subject-title">${m.titolo}</span>`;
                 container.appendChild(div);
             });
@@ -240,7 +241,8 @@
         function logout() { localStorage.removeItem('exam_session_v4'); location.reload(); }
 
         // --- ESAME ---
-        async function loadExam(filename) {
+        async function loadExam(filename, title) {
+            currentExamTitle = title || filename;
             try {
                 document.body.style.cursor = 'wait';
                 const res = await fetch(`${DATA_PATH}${filename}.enc`);
@@ -325,7 +327,7 @@
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
             const topic = document.querySelector('.topic-badge')?.innerText || 'Esame';
-            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${topic}`);
+            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
 
             const btnErr = document.getElementById('btn-errors');
             const report = document.getElementById('error-report');
