@@ -1,124 +1,8 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulatore Esame Protetto</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <style>
-        /* --- STILI (Invariati) --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .app-container { width: 100%; max-width: 800px; background-color: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border-top: 8px solid #2c3e50; min-height: 400px; }
-        header { background-color: #2c3e50; color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
-        header h1 { font-size: 1.5rem; margin-bottom: 5px; }
-        .badge { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
-        .screen { padding: 40px; text-align: center; display: none; animation: fadeIn 0.4s; }
-        .screen.active { display: block; }
-        .login-box { max-width: 400px; margin: 0 auto; text-align: left; }
-        input.login-field { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
-        .subject-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px; }
-        .subject-card { background: #f8fafc; border: 2px solid #e2e8f0; padding: 20px; border-radius: 10px; cursor: pointer; transition: 0.2s; font-weight: bold; color: #2c3e50; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 110px; word-break: break-word; }
-        .subject-card:hover { border-color: #3498db; background: #ebf5fb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .subject-icon { font-size: 2rem; }
-        .progress-container { width: 100%; background-color: #e9ecef; height: 8px; }
-        .progress-bar { height: 100%; background-color: #27ae60; width: 0%; transition: width 0.3s; }
-        .question-meta { margin-bottom: 15px; font-size: 0.85rem; text-align: left; }
-        .topic-badge { background-color: #e1f5fe; color: #0277bd; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-right: 10px; }
-        .question-text { font-size: 1.35rem; color: #2c3e50; margin-bottom: 30px; line-height: 1.5; font-family: 'Merriweather', serif; text-align: left; }
-        .question-id { color: #aaa; font-size: 0.7em; margin-right: 8px; vertical-align: middle; }
-        .option-btn { width: 100%; text-align: left; padding: 15px 20px; background-color: white; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; color: #4a5568; cursor: pointer; margin-bottom: 10px; display: flex; align-items: flex-start; }
-        .option-btn:hover:not(:disabled) { background-color: #f8fafc; border-color: #cbd5e1; }
-        .option-letter { background-color: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1; margin-right: 15px; font-weight: bold; min-width: 30px; text-align: center; }
-        .option-btn.correct { background-color: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
-        .option-btn.wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
-        .btn { padding: 12px 25px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; background-color: #2c3e50; color: white; margin-top: 20px; }
-        .btn:hover { background-color: #34495e; }
-        .btn-secondary { background-color: #95a5a6; }
-        .btn-outline { background: transparent; border: 2px solid #2c3e50; color: #2c3e50; }
-        .keyboard-hint { font-size: 0.8rem; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; }
-        .key-badge { border: 1px solid #ccc; padding: 0px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; background: #fff; }
-        .error-msg { color: #c0392b; background: #fadbd8; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
-        .error-item { text-align: left; border-bottom: 1px solid #eee; padding: 15px 0; }
-        .error-q { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;}
-        .error-ans { font-size: 0.9rem; color: #c0392b; }
-        .correct-ans { font-size: 0.9rem; color: #27ae60; font-weight: bold; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
-</head>
-<body>
-
-    <div class="app-container">
-        <header>
-            <div>
-                <h1>Simulatore Esame</h1>
-                <p style="font-size: 0.8rem; opacity: 0.8;">Area Riservata Studenti</p>
-            </div>
-            <div id="user-badge" class="badge" style="display:none;"></div>
-        </header>
-
-        <div id="login-screen" class="screen active">
-            <h2>Accesso Sicuro</h2>
-            <p style="color: #666; margin-bottom: 20px;">Inserisci email e PIN personale.</p>
-            <div class="login-box">
-                <div id="login-error" class="error-msg"></div>
-                <label>Email Istituzionale</label>
-                <input type="email" id="email" class="login-field" placeholder="nome.cognome@studenti.it">
-                
-                <label>PIN Personale (5 cifre)</label>
-                <input type="password" id="pin" class="login-field" placeholder="es. 12345" maxlength="5">
-                
-                <button onclick="login()" class="btn" style="width: 100%;">Verifica e Accedi</button>
-            </div>
-        </div>
-
-        <div id="dashboard-screen" class="screen">
-            <h2>Scegli la Materia</h2>
-            <p>Sessione valida per altri <strong id="days-left"></strong> giorni.</p>
-            <div id="subject-container" class="subject-grid"></div>
-            <button onclick="logout()" class="btn btn-secondary" style="margin-top: 40px;">Disconnetti</button>
-        </div>
-
-        <div id="quiz-screen" class="screen" style="text-align: left;">
-            <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
-            <div style="padding-top: 20px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; color:#7f8c8d; font-weight:bold;">
-                    <span id="q-counter">Domanda 1</span>
-                    <span>Punti: <span id="score">0</span></span>
-                </div>
-                <div id="question-meta" class="question-meta"></div>
-                <div id="question-text" class="question-text"></div>
-                <div id="options-container"></div>
-                <div id="feedback" style="margin-top:20px; padding:15px; border-radius:8px; display:none;"></div>
-                <div style="text-align: right;">
-                    <button id="next-btn" onclick="nextQuestion()" class="btn" style="display:none;">Prossima &rarr;</button>
-                    <button onclick="backToDashboard()" class="btn btn-secondary" style="margin-right: 10px;">Esci</button>
-                </div>
-                <div class="keyboard-hint">Navigazione: <span class="key-badge">1</span>-<span class="key-badge">9</span> scelte, <span class="key-badge">Invio</span> avanti</div>
-            </div>
-        </div>
-
-        <div id="result-screen" class="screen">
-            <h2>Esame Terminato</h2>
-            <div style="font-size: 3rem; font-weight: bold; margin: 20px 0; color: #2c3e50;">
-                <span id="final-score"></span>
-            </div>
-            <div id="final-msg" style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:20px; font-style:italic;"></div>
-            <button onclick="toggleErrors()" id="btn-errors" class="btn btn-outline" style="display:none; margin-bottom: 10px;">🔍 Vedi Errori</button>
-            <br>
-            <button onclick="backToDashboard()" class="btn">Torna alla Dashboard</button>
-            <div id="error-report" style="display: none; margin-top: 30px; border-top: 2px solid #eee;">
-                <h3 style="margin-top: 20px; color: #c0392b;">Riepilogo Errori</h3>
-                <div id="error-list"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
+<script>
         const SESSION_DAYS = 7;
         const DATA_PATH = './data/';
         
-        // --- LOGGER GOOGLE SCRIPT ---
+        // --- CONFIGURAZIONE LOGGER ---
         let LOG_URL = null; 
 
         let sessionMasterKey = null;
@@ -126,7 +10,8 @@
         let currentQIndex = 0;
         let score = 0;
         let wrongAnswers = []; 
-        let currentExamTitle = "";
+        let currentExamTitle = ""; 
+        let currentExamFile = ""; // --- NUOVO: Serve per salvare gli errori nel file giusto
 
         window.onload = checkSession;
 
@@ -150,7 +35,7 @@
             if (index >= 0 && index < options.length) options[index].click();
         });
 
-        // --- LOGIN CON HASHING (ANONIMO) ---
+        // --- LOGIN ---
         async function login() {
             const emailRaw = document.getElementById('email').value;
             const pin = document.getElementById('pin').value.trim();
@@ -161,39 +46,26 @@
 
             try {
                 showErr("Verifica...", "#e8f8f5", "#2c3e50");
-                
-                // 1. Calcola l'Hash dell'email inserita (per cercare nel file anonimo)
                 const emailClean = emailRaw.trim().toLowerCase();
                 const emailHash = CryptoJS.SHA256(emailClean).toString();
-
-                // 2. Scarica utenti.json (Pubblico ma ANONIMO)
                 const response = await fetch(DATA_PATH + 'utenti.json?v=' + new Date().getTime());
                 if(!response.ok) throw new Error("Database utenti non accessibile.");
-                
                 const db = await response.json();
-
-                // 2.5 Scarica url per log
+                
                 if(db.config && db.config.logUrl) LOG_URL = db.config.logUrl;
-                
-                // 3. Cerca l'utente tramite HASH (non tramite email in chiaro)
+
                 const userRecord = db.users.find(u => u.id === emailHash);
-                
                 if(!userRecord) throw new Error("Email non trovata.");
 
-                // 4. Tenta di aprire il Vault con il PIN
                 const bytes = CryptoJS.AES.decrypt(userRecord.vault, pin);
                 let secretData;
                 try {
                     const text = bytes.toString(CryptoJS.enc.Utf8);
                     if(!text) throw new Error(); 
                     secretData = JSON.parse(text);
-                } catch(e) {
-                    throw new Error("PIN Errato.");
-                }
+                } catch(e) { throw new Error("PIN Errato."); }
 
                 if(!secretData || secretData.check !== "OK") throw new Error("Errore integrità dati.");
-
-                // 5. Login Successo
                 saveSession(emailClean, secretData.key, db.materie);
 
             } catch(e) {
@@ -240,9 +112,11 @@
 
         function logout() { localStorage.removeItem('exam_session_v4'); location.reload(); }
 
-        // --- ESAME ---
+        // --- ESAME (CON LOGICA SCATOLA DEGLI ORRORI) ---
         async function loadExam(filename, title) {
             currentExamTitle = title || filename;
+            currentExamFile = filename; // Salvo il nome del file per il local storage
+
             try {
                 document.body.style.cursor = 'wait';
                 const res = await fetch(`${DATA_PATH}${filename}.enc`);
@@ -251,8 +125,38 @@
                 const decrypted = CryptoJS.AES.decrypt(await res.text(), sessionMasterKey).toString(CryptoJS.enc.Utf8);
                 if(!decrypted) throw new Error("Impossibile decriptare.");
                 
-                let questions = JSON.parse(decrypted);
-                examQuestions = questions.sort(() => Math.random() - 0.5).slice(0, 30);
+                let allQuestions = JSON.parse(decrypted);
+
+                // --- NUOVO: Logica "Ripasso Errori" ---
+                // 1. Recupero gli ID degli errori passati per questa materia
+                const errorHistory = JSON.parse(localStorage.getItem('exam_errors_history') || '{}');
+                const badQuestionIds = errorHistory[currentExamFile] || [];
+
+                // 2. Separo le domande in "Prioritarie" (sbagliate prima) e "Nuove"
+                let priorityQuestions = [];
+                let otherQuestions = [];
+
+                allQuestions.forEach(q => {
+                    if (badQuestionIds.includes(q.id)) {
+                        priorityQuestions.push(q);
+                    } else {
+                        otherQuestions.push(q);
+                    }
+                });
+
+                // 3. Mischio entrambi i gruppi
+                shuffleArray(priorityQuestions);
+                shuffleArray(otherQuestions);
+
+                // 4. Creo il mix finale: Prima le prioritarie, poi le altre fino a riempire 30
+                examQuestions = [...priorityQuestions, ...otherQuestions].slice(0, 30);
+                
+                // Feedback visuale se stiamo facendo un ripasso
+                if(priorityQuestions.length > 0) {
+                    console.log(`Modalità Ripasso Attiva: ${priorityQuestions.length} domande prioritarie caricate.`);
+                }
+                // ----------------------------------------
+
                 startQuiz();
             } catch(e) { alert("Errore caricamento: " + e.message); } 
             finally { document.body.style.cursor = 'default'; }
@@ -301,6 +205,10 @@
                 btn.classList.add('correct');
                 fb.style.background = '#d1fae5';
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
+                
+                // --- NUOVO: Se rispondo correttamente, rimuovo l'errore dalla storia (se c'era) ---
+                updateErrorHistory(q.id, false); 
+
             } else {
                 btn.classList.add('wrong');
                 const correctText = q.opzioni[correctLogicalKey];
@@ -309,9 +217,30 @@
                 });
                 fb.style.background = '#fee2e2';
                 fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correctText}</strong>`;
+                
                 wrongAnswers.push({ id: q.id, argomento: q.argomento || "Generale", domanda: q.domanda, rispostaData: q.opzioni[selectedLogicalKey], rispostaCorretta: q.opzioni[correctLogicalKey] });
+                
+                // --- NUOVO: Salvo l'errore nella storia ---
+                updateErrorHistory(q.id, true);
             }
             document.getElementById('next-btn').style.display = 'inline-block';
+        }
+
+        // --- NUOVO: Funzione Helper per salvare/rimuovere errori dal LocalStorage ---
+        function updateErrorHistory(questionId, isError) {
+            let history = JSON.parse(localStorage.getItem('exam_errors_history') || '{}');
+            if (!history[currentExamFile]) history[currentExamFile] = [];
+
+            if (isError) {
+                // Aggiungi se non c'è già
+                if (!history[currentExamFile].includes(questionId)) {
+                    history[currentExamFile].push(questionId);
+                }
+            } else {
+                // Rimuovi se ho risposto giusto (così smette di perseguitarmi)
+                history[currentExamFile] = history[currentExamFile].filter(id => id !== questionId);
+            }
+            localStorage.setItem('exam_errors_history', JSON.stringify(history));
         }
 
         function nextQuestion() {
@@ -326,7 +255,6 @@
             const pct = (score / examQuestions.length) * 100;
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
-            const topic = document.querySelector('.topic-badge')?.innerText || 'Esame';
             sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
 
             const btnErr = document.getElementById('btn-errors');
@@ -338,16 +266,53 @@
             } else { btnErr.style.display = 'none'; }
         }
 
+        // --- MODIFICATO: Report con Tasti "Gemini" e "Copia ID" ---
         function toggleErrors() {
             const rep = document.getElementById('error-report');
             const list = document.getElementById('error-list');
             if(rep.style.display === 'none') {
                 rep.style.display = 'block'; list.innerHTML = '';
+                
                 wrongAnswers.forEach(item => {
-                    list.innerHTML += `<div class="error-item"><span class="error-q"><small>[${item.argomento}] #${item.id}</small> ${item.domanda}</span><div class="error-ans">❌ Tua risposta: ${item.rispostaData}</div><div class="correct-ans">✅ Corretta: ${item.rispostaCorretta}</div></div>`;
+                    // Prepara il testo per la ricerca (Toglie caratteri strani)
+                    const searchQuery = encodeURIComponent("spiegazione " + item.domanda);
+                    const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
+                    
+                    // Prepara il testo per la segnalazione
+                    const reportText = `[${currentExamTitle}] Errore ID #${item.id}: ${item.domanda.substring(0,30)}...`;
+
+                    list.innerHTML += `
+                        <div class="error-item">
+                            <span class="error-q">
+                                <small>[${item.argomento}] #${item.id}</small> 
+                                ${item.domanda}
+                            </span>
+                            
+                            <div class="error-ans">❌ Tua risposta: ${item.rispostaData}</div>
+                            <div class="correct-ans">✅ Corretta: ${item.rispostaCorretta}</div>
+                            
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <a href="${googleUrl}" target="_blank" style="text-decoration:none;">
+                                    <button class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px;">
+                                        🤖 Chiedi all'IA
+                                    </button>
+                                </a>
+
+                                <button onclick="copyToClipboard('${reportText}')" class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px; border-color:#e67e22; color:#e67e22;">
+                                    ⚠️ Segnala
+                                </button>
+                            </div>
+                        </div>`;
                 });
                 window.scrollTo(0, document.body.scrollHeight);
             } else { rep.style.display = 'none'; }
+        }
+
+        // --- NUOVO: Funzione Copia incolla ---
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("ID e dettagli copiati! Incolla il messaggio al professore.");
+            });
         }
 
         function shuffleArray(array) {
@@ -360,15 +325,31 @@
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
         function sendLog(action, details = "") {
-            if(!sessionMasterKey && action !== "LOGIN") return;
-            const data = JSON.parse(localStorage.getItem('exam_session_v4'));
-            const userEmail = data ? data.email : (document.getElementById('email').value || "Sconosciuto");
+            const sessionRaw = localStorage.getItem('exam_session_v4');
+            if (!sessionRaw && action !== "LOGIN") return;
+            
+            let userEmail = "Sconosciuto";
+            if (sessionRaw) {
+                try {
+                    const data = JSON.parse(sessionRaw);
+                    userEmail = data.email;
+                } catch(e) {}
+            } else if (action === "LOGIN") {
+                userEmail = document.getElementById('email')?.value || "Login Init";
+            }
+
+            if(!LOG_URL) return;
+
+            const payload = {
+                email: userEmail,
+                action: action,
+                details: details,
+                userAgent: navigator.userAgent
+            };
 
             fetch(LOG_URL, {
                 method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: userEmail, action: action, details: details, userAgent: navigator.userAgent })
+                body: JSON.stringify(payload)
             }).catch(e => console.error("Log fallito", e));
         }
     </script>
-</body>
-</html>
