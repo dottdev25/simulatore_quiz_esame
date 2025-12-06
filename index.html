@@ -325,7 +325,7 @@
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
             const topic = document.querySelector('.topic-badge')?.innerText || 'Esame';
-            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - ${topic}`);
+            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${topic}`);
 
             const btnErr = document.getElementById('btn-errors');
             const report = document.getElementById('error-report');
@@ -358,7 +358,7 @@
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
         function sendLog(action, details = "") {
-            if(!sessionKey && action !== "LOGIN") return;
+            if(!sessionMasterKey && action !== "LOGIN") return;
             const data = JSON.parse(localStorage.getItem('exam_session_v4'));
             const userEmail = data ? data.email : (document.getElementById('email').value || "Sconosciuto");
 
