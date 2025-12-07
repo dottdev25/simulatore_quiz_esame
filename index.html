@@ -388,7 +388,7 @@
             showScreen('result-screen');
             document.getElementById('final-score').innerText = `${score} / ${examQuestions.length}`;
             const pct = (score / examQuestions.length) * 100;
-            document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
+            document.getElementById('final-msg').innerText = pct >= 90 ? "Ascetismo puro! 🏆" : pct >= 60 ? "Hai studiato, ma ti sei distratto. 👍" : "Troppa vita sociale. 📉";
             
             sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
 
