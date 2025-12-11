@@ -206,7 +206,6 @@
             sessionMasterKey = data.key;
             document.getElementById('user-badge').innerText = data.email;
             document.getElementById('user-badge').style.display = 'block';
-            document.getElementById('days-left').innerText = Math.ceil((data.expire - new Date().getTime()) / 86400000);
             generateSubjectButtons(data.materie);
             showScreen('dashboard-screen');
         }
