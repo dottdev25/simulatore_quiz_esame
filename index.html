@@ -115,8 +115,6 @@
     <script>
         const SESSION_DAYS = 7;
         const DATA_PATH = './data/';
-        
-        // --- CONFIGURAZIONE LOGGER ---
         let LOG_URL = null; 
 
         let sessionMasterKey = null;
@@ -125,7 +123,7 @@
         let score = 0;
         let wrongAnswers = []; 
         let currentExamTitle = ""; 
-        let currentExamFile = ""; // --- NUOVO: Serve per salvare gli errori nel file giusto
+        let currentExamID = ""; // Identificativo univoco per la storia errori
 
         window.onload = checkSession;
 
@@ -208,6 +206,7 @@
             sessionMasterKey = data.key;
             document.getElementById('user-badge').innerText = data.email;
             document.getElementById('user-badge').style.display = 'block';
+            document.getElementById('days-left').innerText = Math.ceil((data.expire - new Date().getTime()) / 86400000);
             generateSubjectButtons(data.materie);
             showScreen('dashboard-screen');
         }
@@ -217,7 +216,11 @@
             if (!list || list.length === 0) { container.innerHTML = '<p>Nessuna materia configurata.</p>'; return; }
             list.forEach(m => {
                 const div = document.createElement('div'); div.className = 'subject-card';
-                div.onclick = () => loadExam(m.file, m.titolo);
+                
+                // --- MULTI-FILE: Supporta sia 'file' (singolo) che 'files' (array) ---
+                // Passiamo l'intero oggetto 'm' alla funzione loadExam
+                div.onclick = () => loadExam(m);
+                
                 div.innerHTML = `<span class="subject-icon">${m.icona||'📝'}</span><span class="subject-title">${m.titolo}</span>`;
                 container.appendChild(div);
             });
@@ -225,27 +228,51 @@
 
         function logout() { localStorage.removeItem('exam_session_v4'); location.reload(); }
 
-        // --- ESAME (CON LOGICA SCATOLA DEGLI ORRORI) ---
-        async function loadExam(filename, title) {
-            currentExamTitle = title || filename;
-            currentExamFile = filename; // Salvo il nome del file per il local storage
+        // --- FUNZIONE HELPER PER SCARICARE UN SINGOLO FILE ---
+        async function fetchAndDecrypt(filename) {
+            const res = await fetch(`${DATA_PATH}${filename}.enc`);
+            if(!res.ok) throw new Error(`File mancante: ${filename}`);
+            const text = await res.text();
+            const decrypted = CryptoJS.AES.decrypt(text, sessionMasterKey).toString(CryptoJS.enc.Utf8);
+            if(!decrypted) throw new Error(`Fallita decrittazione: ${filename}`);
+            return JSON.parse(decrypted);
+        }
+
+        // --- ESAME (SUPPORTO MULTI-FILE) ---
+        async function loadExam(subjectConfig) {
+            currentExamTitle = subjectConfig.titolo;
+            
+            // Determina la lista dei file da caricare
+            let filesToLoad = [];
+            if (subjectConfig.files) {
+                filesToLoad = subjectConfig.files; // È già un array (es. ["osso", "muscoli"])
+                currentExamID = "MIX_" + subjectConfig.titolo.replace(/\s/g, ''); // ID univoco per la storia errori
+            } else {
+                filesToLoad = [subjectConfig.file]; // È singolo, lo mettiamo in un array
+                currentExamID = subjectConfig.file;
+            }
 
             try {
                 document.body.style.cursor = 'wait';
-                const res = await fetch(`${DATA_PATH}${filename}.enc`);
-                if(!res.ok) throw new Error(`File materia non trovato: ${filename}`);
                 
-                const decrypted = CryptoJS.AES.decrypt(await res.text(), sessionMasterKey).toString(CryptoJS.enc.Utf8);
-                if(!decrypted) throw new Error("Impossibile decriptare.");
-                
-                let allQuestions = JSON.parse(decrypted);
+                let allQuestions = [];
 
-                // --- NUOVO: Logica "Ripasso Errori" ---
-                // 1. Recupero gli ID degli errori passati per questa materia
+                // --- CARICAMENTO PARALLELO DI TUTTI I FILE ---
+                // Usa Promise.all per scaricarli tutti insieme velocemente
+                const promises = filesToLoad.map(filename => fetchAndDecrypt(filename));
+                const results = await Promise.all(promises);
+
+                // Unisce tutti i risultati in un unico array gigante
+                results.forEach(questions => {
+                    allQuestions = allQuestions.concat(questions);
+                });
+
+                console.log(`Caricate ${allQuestions.length} domande totali da ${filesToLoad.length} file.`);
+
+                // --- LOGICA RIPASSO ERRORI ---
                 const errorHistory = JSON.parse(localStorage.getItem('exam_errors_history') || '{}');
-                const badQuestionIds = errorHistory[currentExamFile] || [];
+                const badQuestionIds = errorHistory[currentExamID] || [];
 
-                // 2. Separo le domande in "Prioritarie" (sbagliate prima) e "Nuove"
                 let priorityQuestions = [];
                 let otherQuestions = [];
 
@@ -257,21 +284,20 @@
                     }
                 });
 
-                // 3. Mischio entrambi i gruppi
                 shuffleArray(priorityQuestions);
                 shuffleArray(otherQuestions);
 
-                // 4. Creo il mix finale: Prima le prioritarie, poi le altre fino a riempire 30
                 examQuestions = [...priorityQuestions, ...otherQuestions].slice(0, 30);
                 
-                // Feedback visuale se stiamo facendo un ripasso
                 if(priorityQuestions.length > 0) {
-                    console.log(`Modalità Ripasso Attiva: ${priorityQuestions.length} domande prioritarie caricate.`);
+                    console.log(`Modalità Ripasso: ${priorityQuestions.length} errori precedenti inclusi.`);
                 }
-                // ----------------------------------------
 
                 startQuiz();
-            } catch(e) { alert("Errore caricamento: " + e.message); } 
+            } catch(e) { 
+                alert("Errore caricamento esame: " + e.message); 
+                console.error(e);
+            } 
             finally { document.body.style.cursor = 'default'; }
         }
 
@@ -294,86 +320,56 @@
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('next-btn').style.display = 'none';
 
-            // 1. Prendi le chiavi logiche (A, B, C...) e MESCOLALE
             let logicalKeys = Object.keys(q.opzioni);
             shuffleArray(logicalKeys); 
 
-            // 2. Crea i bottoni
             logicalKeys.forEach((logicalKey, index) => {
-                // Calcola l'etichetta VISIVA (sempre A, B, C, D in ordine dall'alto)
                 const visualLabel = String.fromCharCode(65 + index);
-                
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                
-                // --- PUNTO CHIAVE: Salviamo la chiave vera (es. "B") in un attributo nascosto ---
-                btn.dataset.logicalKey = logicalKey; 
-                
+                btn.dataset.logicalKey = logicalKey;
                 btn.innerHTML = `<span class="option-letter">${visualLabel}</span> ${q.opzioni[logicalKey]}`;
-                
-                // Passiamo la chiave logica al controllo
                 btn.onclick = () => checkAnswer(logicalKey, q.risposta_corretta, btn);
                 container.appendChild(btn);
             });
         }
 
         function checkAnswer(selectedLogicalKey, correctLogicalKey, btn) {
-            // Disabilita tutti
             document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-            
             const fb = document.getElementById('feedback'); fb.style.display = 'block';
             const q = examQuestions[currentQIndex];
 
             if(selectedLogicalKey === correctLogicalKey) {
-                // GIUSTO
                 score++; document.getElementById('score').innerText = score;
                 btn.classList.add('correct');
                 fb.style.background = '#d1fae5';
                 fb.innerHTML = `<strong style="color:#065f46">Risposta Esatta!</strong>`;
-                
                 updateErrorHistory(q.id, false); 
-
             } else {
-                // SBAGLIATO
                 btn.classList.add('wrong');
-                
-                // --- FIX BUG VISIVO (CON SHUFFLE) ---
-                // Invece di cercare il testo, cerchiamo il bottone che ha l'attributo nascosto uguale alla risposta corretta
                 const correctBtn = document.querySelector(`.option-btn[data-logical-key="${correctLogicalKey}"]`);
                 if(correctBtn) correctBtn.classList.add('correct');
 
                 const correctText = q.opzioni[correctLogicalKey];
                 fb.style.background = '#fee2e2';
+                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> Risposta: <strong>${correctText}</strong>`;
                 
-                // Mostriamo il testo della risposta corretta (più utile della lettera, visto che sono mescolate)
-                fb.innerHTML = `<strong style="color:#991b1b">Errato!</strong> La risposta giusta era: <br><em>${correctText}</em>`;
-                
-                wrongAnswers.push({ 
-                    id: q.id, 
-                    argomento: q.argomento || "Generale", 
-                    domanda: q.domanda, 
-                    rispostaData: q.opzioni[selectedLogicalKey], 
-                    rispostaCorretta: q.opzioni[correctLogicalKey] 
-                });
-                
+                wrongAnswers.push({ id: q.id, argomento: q.argomento || "Generale", domanda: q.domanda, rispostaData: q.opzioni[selectedLogicalKey], rispostaCorretta: q.opzioni[correctLogicalKey] });
                 updateErrorHistory(q.id, true);
             }
             document.getElementById('next-btn').style.display = 'inline-block';
         }
 
-        // --- NUOVO: Funzione Helper per salvare/rimuovere errori dal LocalStorage ---
         function updateErrorHistory(questionId, isError) {
             let history = JSON.parse(localStorage.getItem('exam_errors_history') || '{}');
-            if (!history[currentExamFile]) history[currentExamFile] = [];
+            if (!history[currentExamID]) history[currentExamID] = [];
 
             if (isError) {
-                // Aggiungi se non c'è già
-                if (!history[currentExamFile].includes(questionId)) {
-                    history[currentExamFile].push(questionId);
+                if (!history[currentExamID].includes(questionId)) {
+                    history[currentExamID].push(questionId);
                 }
             } else {
-                // Rimuovi se ho risposto giusto (così smette di perseguitarmi)
-                history[currentExamFile] = history[currentExamFile].filter(id => id !== questionId);
+                history[currentExamID] = history[currentExamID].filter(id => id !== questionId);
             }
             localStorage.setItem('exam_errors_history', JSON.stringify(history));
         }
@@ -388,7 +384,7 @@
             showScreen('result-screen');
             document.getElementById('final-score').innerText = `${score} / ${examQuestions.length}`;
             const pct = (score / examQuestions.length) * 100;
-            document.getElementById('final-msg').innerText = pct >= 90 ? "Ascetismo puro! 🏆" : pct >= 60 ? "Hai studiato, ma ti sei distratto. 👍" : "Troppa vita sociale. 📉";
+            document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
             sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
 
@@ -401,41 +397,26 @@
             } else { btnErr.style.display = 'none'; }
         }
 
-        // --- MODIFICATO: Report con Tasti "Gemini" e "Copia ID" ---
         function toggleErrors() {
             const rep = document.getElementById('error-report');
             const list = document.getElementById('error-list');
             if(rep.style.display === 'none') {
                 rep.style.display = 'block'; list.innerHTML = '';
-                
                 wrongAnswers.forEach(item => {
-                    // Prepara il testo per la ricerca (Toglie caratteri strani)
                     const searchQuery = encodeURIComponent("spiegazione " + item.domanda);
                     const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
-                    
-                    // Prepara il testo per la segnalazione
                     const reportText = `[${currentExamTitle}] Errore ID #${item.id}: ${item.domanda.substring(0,30)}...`;
 
                     list.innerHTML += `
                         <div class="error-item">
-                            <span class="error-q">
-                                <small>[${item.argomento}] #${item.id}</small> 
-                                ${item.domanda}
-                            </span>
-                            
+                            <span class="error-q"><small>[${item.argomento}] #${item.id}</small> ${item.domanda}</span>
                             <div class="error-ans">❌ Tua risposta: ${item.rispostaData}</div>
                             <div class="correct-ans">✅ Corretta: ${item.rispostaCorretta}</div>
-                            
                             <div style="margin-top:10px; display:flex; gap:10px;">
                                 <a href="${googleUrl}" target="_blank" style="text-decoration:none;">
-                                    <button class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px;">
-                                        🌐 Cerca su Google
-                                    </button>
+                                    <button class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px;">🤖 Chiedi all'IA</button>
                                 </a>
-
-                                <button onclick="copyToClipboard('${reportText}')" class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px; border-color:#e67e22; color:#e67e22;">
-                                    ⚠️ Segnala
-                                </button>
+                                <button onclick="copyToClipboard('${reportText}')" class="btn btn-outline" style="font-size:0.8rem; padding:5px 10px; border-color:#e67e22; color:#e67e22;">⚠️ Segnala</button>
                             </div>
                         </div>`;
                 });
@@ -443,11 +424,8 @@
             } else { rep.style.display = 'none'; }
         }
 
-        // --- NUOVO: Funzione Copia incolla ---
         function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert("ID e dettagli copiati! Incolla il messaggio allo sviluppatore del software");
-            });
+            navigator.clipboard.writeText(text).then(() => { alert("ID copiato!"); });
         }
 
         function shuffleArray(array) {
@@ -459,18 +437,13 @@
         function backToDashboard() { showScreen('dashboard-screen'); }
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
-        // --- GESTIONE ID DISPOSITIVO PERSISTENTE ---
+        // --- UTILS ---
         function getOrCreateDeviceId() {
-            // Cerca se esiste già un ID salvato
             let deviceId = localStorage.getItem('exam_device_id');
-            
-            // Se non esiste (è la prima volta che entra), crealo
             if (!deviceId) {
-                // Genera un UUID casuale (es. "f47ac10b-58cc-4372-a567-0e02b2c3d479")
                 deviceId = crypto.randomUUID(); 
                 localStorage.setItem('exam_device_id', deviceId);
             }
-            
             return deviceId;
         }
 
@@ -490,21 +463,16 @@
 
             if(!LOG_URL) return;
 
-            // --- RECUPERA L'ID UNIVOCO ---
-            const uniqueDeviceId = getOrCreateDeviceId();
-
             const payload = {
                 email: userEmail,
                 action: action,
                 details: details,
                 userAgent: navigator.userAgent,
-                deviceId: uniqueDeviceId // <--- AGGIUNTO AL PACCHETTO
+                deviceId: getOrCreateDeviceId()
             };
 
             fetch(LOG_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             }).catch(e => console.error("Log fallito", e));
         }
