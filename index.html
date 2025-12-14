@@ -208,7 +208,7 @@
             const expire = new Date().getTime() + (SESSION_DAYS * 86400000);
             
             // Salviamo anche logUrl nel pacchetto
-            localStorage.setItem('exam_session_v4', JSON.stringify({ 
+            localStorage.setItem('exam_session_v5', JSON.stringify({ 
                 email, 
                 key: masterKey, 
                 expire, 
@@ -221,7 +221,7 @@
         }
 
         function checkSession() {
-            const data = JSON.parse(localStorage.getItem('exam_session_v4'));
+            const data = JSON.parse(localStorage.getItem('exam_session_v5'));
             if(!data) { showScreen('login-screen'); return; }
             if(new Date().getTime() > data.expire) { logout(); return; }
 
@@ -254,7 +254,7 @@
             });
         }
 
-        function logout() { localStorage.removeItem('exam_session_v4'); location.reload(); }
+        function logout() { localStorage.removeItem('exam_session_v5'); location.reload(); }
 
         // --- FUNZIONE HELPER PER SCARICARE UN SINGOLO FILE ---
         async function fetchAndDecrypt(filename) {
@@ -476,7 +476,7 @@
         }
 
         function sendLog(action, details = "") {
-            const sessionRaw = localStorage.getItem('exam_session_v4');
+            const sessionRaw = localStorage.getItem('exam_session_v5');
             if (!sessionRaw && action !== "LOGIN") return;
             
             let userEmail = "Sconosciuto";
