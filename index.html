@@ -158,13 +158,21 @@
 
             try {
                 showErr("Verifica...", "#e8f8f5", "#2c3e50");
+                
                 const emailClean = emailRaw.trim().toLowerCase();
                 const emailHash = CryptoJS.SHA256(emailClean).toString();
+
                 const response = await fetch(DATA_PATH + 'utenti.json?v=' + new Date().getTime());
                 if(!response.ok) throw new Error("Database utenti non accessibile.");
+                
                 const db = await response.json();
                 
-                if(db.config && db.config.logUrl) LOG_URL = db.config.logUrl;
+                // Recuperiamo l'URL dal file appena scaricato
+                let currentLogUrl = null;
+                if(db.config && db.config.logUrl) {
+                    currentLogUrl = db.config.logUrl;
+                    LOG_URL = currentLogUrl; // Aggiorna anche la variabile globale per questa sessione
+                }
 
                 const userRecord = db.users.find(u => u.id === emailHash);
                 if(!userRecord) throw new Error("Email non trovata.");
@@ -175,10 +183,14 @@
                     const text = bytes.toString(CryptoJS.enc.Utf8);
                     if(!text) throw new Error(); 
                     secretData = JSON.parse(text);
-                } catch(e) { throw new Error("PIN Errato."); }
+                } catch(e) {
+                    throw new Error("PIN Errato.");
+                }
 
                 if(!secretData || secretData.check !== "OK") throw new Error("Errore integrità dati.");
-                saveSession(emailClean, secretData.key, db.materie);
+
+                // --- MODIFICA QUI: Passiamo anche currentLogUrl ---
+                saveSession(emailClean, secretData.key, db.materie, currentLogUrl);
 
             } catch(e) {
                 console.error(e);
@@ -191,9 +203,19 @@
             el.innerText = msg; el.style.background=bg; el.style.color=col; el.style.display='block';
         }
 
-        function saveSession(email, masterKey, materie) {
+        // --- MODIFICA: Aggiunto parametro logUrl ---
+        function saveSession(email, masterKey, materie, logUrl) {
             const expire = new Date().getTime() + (SESSION_DAYS * 86400000);
-            localStorage.setItem('exam_session_v4', JSON.stringify({ email, key: masterKey, expire, materie }));
+            
+            // Salviamo anche logUrl nel pacchetto
+            localStorage.setItem('exam_session_v4', JSON.stringify({ 
+                email, 
+                key: masterKey, 
+                expire, 
+                materie,
+                logUrl: logUrl // <--- SALVATO!
+            }));
+            
             setTimeout(() => sendLog("LOGIN", "Accesso Effettuato"), 1000);
             checkSession();
         }
@@ -204,8 +226,15 @@
             if(new Date().getTime() > data.expire) { logout(); return; }
 
             sessionMasterKey = data.key;
+            
+            // --- MODIFICA: Ripristina LOG_URL dalla memoria ---
+            if (data.logUrl) {
+                LOG_URL = data.logUrl;
+            }
+
             document.getElementById('user-badge').innerText = data.email;
             document.getElementById('user-badge').style.display = 'block';
+            document.getElementById('days-left').innerText = Math.ceil((data.expire - new Date().getTime()) / 86400000);
             generateSubjectButtons(data.materie);
             showScreen('dashboard-screen');
         }
@@ -451,16 +480,22 @@
             if (!sessionRaw && action !== "LOGIN") return;
             
             let userEmail = "Sconosciuto";
+            let storedUrl = null;
+
             if (sessionRaw) {
                 try {
                     const data = JSON.parse(sessionRaw);
                     userEmail = data.email;
+                    storedUrl = data.logUrl; // Recupera URL di riserva
                 } catch(e) {}
             } else if (action === "LOGIN") {
                 userEmail = document.getElementById('email')?.value || "Login Init";
             }
 
-            if(!LOG_URL) return;
+            // Usa la variabile globale O quella recuperata dalla memoria
+            const targetUrl = LOG_URL || storedUrl;
+
+            if(!targetUrl) return; // Se ancora non c'è, rinuncia
 
             const payload = {
                 email: userEmail,
@@ -470,8 +505,10 @@
                 deviceId: getOrCreateDeviceId()
             };
 
-            fetch(LOG_URL, {
-                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+            fetch(targetUrl, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             }).catch(e => console.error("Log fallito", e));
         }
