@@ -6,43 +6,79 @@
     <title>Simulatore Esame Risposta Multipla</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        /* --- STILI (Invariati) --- */
+        /* --- STILI BASE --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        
         .app-container { width: 100%; max-width: 800px; background-color: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border-top: 8px solid #2c3e50; min-height: 400px; }
+        
         header { background-color: #2c3e50; color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
         header h1 { font-size: 1.5rem; margin-bottom: 5px; }
         .badge { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
+
         .screen { padding: 40px; text-align: center; display: none; animation: fadeIn 0.4s; }
         .screen.active { display: block; }
+        
+        /* LOGIN */
         .login-box { max-width: 400px; margin: 0 auto; text-align: left; }
         input.login-field { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
+        
+        /* DASHBOARD */
         .subject-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px; }
-        .subject-card { background: #f8fafc; border: 2px solid #e2e8f0; padding: 20px; border-radius: 10px; cursor: pointer; transition: 0.2s; font-weight: bold; color: #2c3e50; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 110px; word-break: break-word; }
+        
+        .subject-card { 
+            background: #f8fafc; border: 2px solid #e2e8f0; padding: 20px; border-radius: 10px; 
+            cursor: pointer; transition: 0.2s; font-weight: bold; color: #2c3e50; 
+            display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+            min-height: 110px; word-break: break-word; 
+        }
         .subject-card:hover { border-color: #3498db; background: #ebf5fb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .subject-icon { font-size: 2rem; }
+        .subject-title { font-size: 1.1rem; line-height: 1.3; }
+
+        /* QUIZ */
         .progress-container { width: 100%; background-color: #e9ecef; height: 8px; }
         .progress-bar { height: 100%; background-color: #27ae60; width: 0%; transition: width 0.3s; }
+        
+        /* TIMER */
+        .quiz-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: #7f8c8d; font-weight: bold; }
+        .timer-badge { background: #fdf2f2; color: #c0392b; padding: 5px 12px; border-radius: 15px; font-family: monospace; font-size: 1.1rem; border: 1px solid #fab1a0; }
+
         .question-meta { margin-bottom: 15px; font-size: 0.85rem; text-align: left; }
-        .topic-badge { background-color: #e1f5fe; color: #0277bd; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-right: 10px; }
+        .topic-badge { 
+            background-color: #e1f5fe; color: #0277bd; 
+            padding: 4px 8px; border-radius: 4px; 
+            font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+            display: inline-block; margin-right: 10px;
+        }
+
         .question-text { font-size: 1.35rem; color: #2c3e50; margin-bottom: 30px; line-height: 1.5; font-family: 'Merriweather', serif; text-align: left; }
         .question-id { color: #aaa; font-size: 0.7em; margin-right: 8px; vertical-align: middle; }
+
         .option-btn { width: 100%; text-align: left; padding: 15px 20px; background-color: white; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; color: #4a5568; cursor: pointer; margin-bottom: 10px; display: flex; align-items: flex-start; }
         .option-btn:hover:not(:disabled) { background-color: #f8fafc; border-color: #cbd5e1; }
         .option-letter { background-color: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1; margin-right: 15px; font-weight: bold; min-width: 30px; text-align: center; }
+        
         .option-btn.correct { background-color: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
         .option-btn.wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
+
         .btn { padding: 12px 25px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; background-color: #2c3e50; color: white; margin-top: 20px; }
         .btn:hover { background-color: #34495e; }
         .btn-secondary { background-color: #95a5a6; }
         .btn-outline { background: transparent; border: 2px solid #2c3e50; color: #2c3e50; }
+        .btn-outline:hover { background: #f0f2f5; }
+
         .keyboard-hint { font-size: 0.8rem; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; }
         .key-badge { border: 1px solid #ccc; padding: 0px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; background: #fff; }
-        .error-msg { color: #c0392b; background: #fadbd8; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
+
+        /* ERROR REPORT */
         .error-item { text-align: left; border-bottom: 1px solid #eee; padding: 15px 0; }
         .error-q { font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;}
         .error-ans { font-size: 0.9rem; color: #c0392b; }
         .correct-ans { font-size: 0.9rem; color: #27ae60; font-weight: bold; }
+
+        .error-msg { color: #c0392b; background: #fadbd8; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
@@ -51,29 +87,28 @@
     <div class="app-container">
         <header>
             <div>
-                <h1>Simulatore Esame Risposta Multipla</h1>
-                <p style="font-size: 0.8rem; opacity: 0.8;">Area Riservata Studenti Autorizzati</p>
+                <h1>Simulatore Esame</h1>
+                <p style="font-size: 0.8rem; opacity: 0.8;">Area Riservata Studenti</p>
             </div>
             <div id="user-badge" class="badge" style="display:none;"></div>
         </header>
 
         <div id="login-screen" class="screen active">
-            <h2>Accesso Sicuro</h2>
-            <p style="color: #666; margin-bottom: 20px;">Inserisci email e PIN personale.</p>
+            <h2>Accedi al Portale</h2>
+            <p style="color: #666; margin-bottom: 20px;">Inserisci email istituzionale e codice accesso.</p>
             <div class="login-box">
                 <div id="login-error" class="error-msg"></div>
-                <label>Email Istituzionale</label>
+                <label>Email</label>
                 <input type="email" id="email" class="login-field" placeholder="nome.cognome@studenti.it">
-                
-                <label>PIN Personale (5 cifre)</label>
-                <input type="password" id="pin" class="login-field" placeholder="es. 12345" maxlength="5">
-                
+                <label>PIN Personale</label>
+                <input type="password" id="pin" class="login-field" placeholder="••••••••">
                 <button onclick="login()" class="btn" style="width: 100%;">Verifica e Accedi</button>
             </div>
         </div>
 
         <div id="dashboard-screen" class="screen">
             <h2>Scegli la Materia</h2>
+            <p>Ruolo: <strong id="user-role-display"></strong></p>
             <div id="subject-container" class="subject-grid"></div>
             <button onclick="logout()" class="btn btn-secondary" style="margin-top: 40px;">Disconnetti</button>
         </div>
@@ -81,19 +116,26 @@
         <div id="quiz-screen" class="screen" style="text-align: left;">
             <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
             <div style="padding-top: 20px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; color:#7f8c8d; font-weight:bold;">
+                <div class="quiz-header-row">
                     <span id="q-counter">Domanda 1</span>
+                    <span id="timer-display" class="timer-badge">00:00</span>
                     <span>Punti: <span id="score">0</span></span>
                 </div>
+                
                 <div id="question-meta" class="question-meta"></div>
                 <div id="question-text" class="question-text"></div>
+                
                 <div id="options-container"></div>
                 <div id="feedback" style="margin-top:20px; padding:15px; border-radius:8px; display:none;"></div>
+                
                 <div style="text-align: right;">
                     <button id="next-btn" onclick="nextQuestion()" class="btn" style="display:none;">Prossima &rarr;</button>
                     <button onclick="backToDashboard()" class="btn btn-secondary" style="margin-right: 10px;">Esci</button>
                 </div>
-                <div class="keyboard-hint">Navigazione: <span class="key-badge">1</span>-<span class="key-badge">9</span> scelte, <span class="key-badge">Invio</span> avanti</div>
+
+                <div class="keyboard-hint">
+                    Navigazione: <span class="key-badge">1</span>-<span class="key-badge">5</span> risposte, <span class="key-badge">Invio</span> avanti
+                </div>
             </div>
         </div>
 
@@ -102,28 +144,41 @@
             <div style="font-size: 3rem; font-weight: bold; margin: 20px 0; color: #2c3e50;">
                 <span id="final-score"></span>
             </div>
+            <p style="font-size: 1.2rem; color: #7f8c8d; margin-bottom: 20px;">
+                Tempo impiegato: <strong id="final-time"></strong>
+            </p>
             <div id="final-msg" style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:20px; font-style:italic;"></div>
+            
             <button onclick="toggleErrors()" id="btn-errors" class="btn btn-outline" style="display:none; margin-bottom: 10px;">🔍 Vedi Errori</button>
             <br>
             <button onclick="backToDashboard()" class="btn">Torna alla Dashboard</button>
+
             <div id="error-report" style="display: none; margin-top: 30px; border-top: 2px solid #eee;">
                 <h3 style="margin-top: 20px; color: #c0392b;">Riepilogo Errori</h3>
                 <div id="error-list"></div>
             </div>
         </div>
     </div>
+
     <script>
         const SESSION_DAYS = 7;
         const DATA_PATH = './data/';
         let LOG_URL = null; 
 
         let sessionMasterKey = null;
+        let currentUserRole = "free user"; // Default role
+        
         let examQuestions = [];
         let currentQIndex = 0;
         let score = 0;
         let wrongAnswers = []; 
         let currentExamTitle = ""; 
-        let currentExamID = ""; // Identificativo univoco per la storia errori
+        let currentExamID = ""; 
+
+        // --- VARIABILI TIMER ---
+        let timerInterval = null;
+        let startTime = 0;
+        let elapsedSeconds = 0;
 
         window.onload = checkSession;
 
@@ -140,8 +195,11 @@
             if (nextBtn.style.display !== 'none') return;
 
             let index = -1;
-            if (key >= '1' && key <= '9') index = parseInt(key) - 1;
-            else if (key.length === 1 && key >= 'A' && key <= 'Z') index = key.charCodeAt(0) - 65;
+            if (['1', 'A'].includes(key)) index = 0;
+            else if (['2', 'B'].includes(key)) index = 1;
+            else if (['3', 'C'].includes(key)) index = 2;
+            else if (['4', 'D'].includes(key)) index = 3;
+            else if (['5', 'E'].includes(key)) index = 4;
 
             const options = document.querySelectorAll('.option-btn');
             if (index >= 0 && index < options.length) options[index].click();
@@ -158,24 +216,20 @@
 
             try {
                 showErr("Verifica...", "#e8f8f5", "#2c3e50");
-                
                 const emailClean = emailRaw.trim().toLowerCase();
                 const emailHash = CryptoJS.SHA256(emailClean).toString();
-
                 const response = await fetch(DATA_PATH + 'utenti.json?v=' + new Date().getTime());
                 if(!response.ok) throw new Error("Database utenti non accessibile.");
-                
                 const db = await response.json();
                 
-                // Recuperiamo l'URL dal file appena scaricato
-                let currentLogUrl = null;
-                if(db.config && db.config.logUrl) {
-                    currentLogUrl = db.config.logUrl;
-                    LOG_URL = currentLogUrl; // Aggiorna anche la variabile globale per questa sessione
-                }
+                if(db.config && db.config.logUrl) LOG_URL = db.config.logUrl;
 
                 const userRecord = db.users.find(u => u.id === emailHash);
                 if(!userRecord) throw new Error("Email non trovata.");
+
+                // --- CONTROLLO UTENTE BANNATO ---
+                const role = userRecord.role || "free user";
+                if(role === "banned") throw new Error("Account sospeso. Contattare l'amministratore.");
 
                 const bytes = CryptoJS.AES.decrypt(userRecord.vault, pin);
                 let secretData;
@@ -183,14 +237,11 @@
                     const text = bytes.toString(CryptoJS.enc.Utf8);
                     if(!text) throw new Error(); 
                     secretData = JSON.parse(text);
-                } catch(e) {
-                    throw new Error("PIN Errato.");
-                }
+                } catch(e) { throw new Error("PIN Errato."); }
 
                 if(!secretData || secretData.check !== "OK") throw new Error("Errore integrità dati.");
-
-                // --- MODIFICA QUI: Passiamo anche currentLogUrl ---
-                saveSession(emailClean, secretData.key, db.materie, currentLogUrl);
+                
+                saveSession(emailClean, secretData.key, db.materie, LOG_URL, role);
 
             } catch(e) {
                 console.error(e);
@@ -203,37 +254,33 @@
             el.innerText = msg; el.style.background=bg; el.style.color=col; el.style.display='block';
         }
 
-        // --- MODIFICA: Aggiunto parametro logUrl ---
-        function saveSession(email, masterKey, materie, logUrl) {
+        // --- SALVATAGGIO SESSIONE ---
+        function saveSession(email, masterKey, materie, logUrl, role) {
             const expire = new Date().getTime() + (SESSION_DAYS * 86400000);
             
-            // Salviamo anche logUrl nel pacchetto
-            localStorage.setItem('exam_session_v5', JSON.stringify({ 
-                email, 
-                key: masterKey, 
-                expire, 
-                materie,
-                logUrl: logUrl // <--- SALVATO!
+            // USIAMO V6 PER FORZARE L'AGGIORNAMENTO
+            localStorage.setItem('exam_session_v6', JSON.stringify({ 
+                email, key: masterKey, expire, materie, logUrl, role 
             }));
             
-            setTimeout(() => sendLog("LOGIN", "Accesso Effettuato"), 1000);
+            setTimeout(() => sendLog("LOGIN", `Accesso come ${role}`), 1000);
             checkSession();
         }
 
         function checkSession() {
-            const data = JSON.parse(localStorage.getItem('exam_session_v5'));
+            const data = JSON.parse(localStorage.getItem('exam_session_v6'));
             if(!data) { showScreen('login-screen'); return; }
             if(new Date().getTime() > data.expire) { logout(); return; }
 
             sessionMasterKey = data.key;
+            if(data.logUrl) LOG_URL = data.logUrl;
             
-            // --- MODIFICA: Ripristina LOG_URL dalla memoria ---
-            if (data.logUrl) {
-                LOG_URL = data.logUrl;
-            }
+            currentUserRole = data.role || "free user";
 
             document.getElementById('user-badge').innerText = data.email;
             document.getElementById('user-badge').style.display = 'block';
+            document.getElementById('user-role-display').innerText = currentUserRole.toUpperCase();
+            
             generateSubjectButtons(data.materie);
             showScreen('dashboard-screen');
         }
@@ -241,21 +288,32 @@
         function generateSubjectButtons(list) {
             const container = document.getElementById('subject-container'); container.innerHTML = '';
             if (!list || list.length === 0) { container.innerHTML = '<p>Nessuna materia configurata.</p>'; return; }
+            
             list.forEach(m => {
-                const div = document.createElement('div'); div.className = 'subject-card';
+                // --- LOGICA RBAC (RUOLI) ---
+                // 1. Recupera i ruoli ammessi per questa materia (default: per tutti se vuoto, ma meglio specificare)
+                // Se non specificato, assumiamo sia solo per admin per sicurezza
+                const allowedRoles = m.roles || ["admin"];
                 
-                // --- MULTI-FILE: Supporta sia 'file' (singolo) che 'files' (array) ---
-                // Passiamo l'intero oggetto 'm' alla funzione loadExam
-                div.onclick = () => loadExam(m);
-                
-                div.innerHTML = `<span class="subject-icon">${m.icona||'📝'}</span><span class="subject-title">${m.titolo}</span>`;
-                container.appendChild(div);
+                // 2. Controlla se il ruolo dell'utente è nella lista (o se è admin)
+                const hasAccess = currentUserRole === 'admin' || allowedRoles.includes(currentUserRole);
+
+                if (hasAccess) {
+                    const div = document.createElement('div'); div.className = 'subject-card';
+                    div.onclick = () => loadExam(m);
+                    div.innerHTML = `<span class="subject-icon">${m.icona||'📝'}</span><span class="subject-title">${m.titolo}</span>`;
+                    container.appendChild(div);
+                }
             });
+            
+            if (container.children.length === 0) {
+                container.innerHTML = '<p style="grid-column:1/-1; color:#666;">Nessun test disponibile per il tuo piano attuale.</p>';
+            }
         }
 
-        function logout() { localStorage.removeItem('exam_session_v5'); location.reload(); }
+        function logout() { localStorage.removeItem('exam_session_v6'); location.reload(); }
 
-        // --- FUNZIONE HELPER PER SCARICARE UN SINGOLO FILE ---
+        // --- HELPER DECRITTAZIONE ---
         async function fetchAndDecrypt(filename) {
             const res = await fetch(`${DATA_PATH}${filename}.enc`);
             if(!res.ok) throw new Error(`File mancante: ${filename}`);
@@ -265,38 +323,29 @@
             return JSON.parse(decrypted);
         }
 
-        // --- ESAME (SUPPORTO MULTI-FILE) ---
+        // --- ESAME ---
         async function loadExam(subjectConfig) {
             currentExamTitle = subjectConfig.titolo;
             
-            // Determina la lista dei file da caricare
             let filesToLoad = [];
             if (subjectConfig.files) {
-                filesToLoad = subjectConfig.files; // È già un array (es. ["osso", "muscoli"])
-                currentExamID = "MIX_" + subjectConfig.titolo.replace(/\s/g, ''); // ID univoco per la storia errori
+                filesToLoad = subjectConfig.files; 
+                currentExamID = "MIX_" + subjectConfig.titolo.replace(/\s/g, ''); 
             } else {
-                filesToLoad = [subjectConfig.file]; // È singolo, lo mettiamo in un array
+                filesToLoad = [subjectConfig.file];
                 currentExamID = subjectConfig.file;
             }
 
             try {
                 document.body.style.cursor = 'wait';
-                
                 let allQuestions = [];
-
-                // --- CARICAMENTO PARALLELO DI TUTTI I FILE ---
-                // Usa Promise.all per scaricarli tutti insieme velocemente
                 const promises = filesToLoad.map(filename => fetchAndDecrypt(filename));
                 const results = await Promise.all(promises);
 
-                // Unisce tutti i risultati in un unico array gigante
                 results.forEach(questions => {
                     allQuestions = allQuestions.concat(questions);
                 });
 
-                console.log(`Caricate ${allQuestions.length} domande totali da ${filesToLoad.length} file.`);
-
-                // --- LOGICA RIPASSO ERRORI ---
                 const errorHistory = JSON.parse(localStorage.getItem('exam_errors_history') || '{}');
                 const badQuestionIds = errorHistory[currentExamID] || [];
 
@@ -304,33 +353,53 @@
                 let otherQuestions = [];
 
                 allQuestions.forEach(q => {
-                    if (badQuestionIds.includes(q.id)) {
-                        priorityQuestions.push(q);
-                    } else {
-                        otherQuestions.push(q);
-                    }
+                    if (badQuestionIds.includes(q.id)) priorityQuestions.push(q);
+                    else otherQuestions.push(q);
                 });
 
                 shuffleArray(priorityQuestions);
                 shuffleArray(otherQuestions);
 
                 examQuestions = [...priorityQuestions, ...otherQuestions].slice(0, 30);
-                
-                if(priorityQuestions.length > 0) {
-                    console.log(`Modalità Ripasso: ${priorityQuestions.length} errori precedenti inclusi.`);
-                }
-
                 startQuiz();
             } catch(e) { 
-                alert("Errore caricamento esame: " + e.message); 
+                alert("Errore: " + e.message); 
                 console.error(e);
             } 
             finally { document.body.style.cursor = 'default'; }
         }
 
+        // --- FUNZIONI TIMER ---
+        function startTimer() {
+            startTime = Date.now();
+            elapsedSeconds = 0;
+            document.getElementById('timer-display').innerText = "00:00";
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+                const seconds = (elapsedSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            const minutes = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+            const seconds = (elapsedSeconds % 60).toString().padStart(2, '0');
+            return `${minutes}:${seconds}`;
+        }
+
         function startQuiz() {
             score = 0; currentQIndex = 0; wrongAnswers = [];
-            showScreen('quiz-screen'); loadQuestion();
+            showScreen('quiz-screen'); 
+            startTimer(); // AVVIA TIMER
+            loadQuestion();
         }
 
         function loadQuestion() {
@@ -392,9 +461,7 @@
             if (!history[currentExamID]) history[currentExamID] = [];
 
             if (isError) {
-                if (!history[currentExamID].includes(questionId)) {
-                    history[currentExamID].push(questionId);
-                }
+                if (!history[currentExamID].includes(questionId)) history[currentExamID].push(questionId);
             } else {
                 history[currentExamID] = history[currentExamID].filter(id => id !== questionId);
             }
@@ -408,12 +475,16 @@
         }
 
         function showResults() {
+            const finalTimeString = stopTimer(); // FERMA TIMER
+
             showScreen('result-screen');
             document.getElementById('final-score').innerText = `${score} / ${examQuestions.length}`;
+            document.getElementById('final-time').innerText = finalTimeString; // MOSTRA TEMPO
+
             const pct = (score / examQuestions.length) * 100;
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
-            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
+            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Tempo: ${finalTimeString} - Materia: ${currentExamTitle}`);
 
             const btnErr = document.getElementById('btn-errors');
             const report = document.getElementById('error-report');
@@ -461,7 +532,10 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
         }
-        function backToDashboard() { showScreen('dashboard-screen'); }
+        function backToDashboard() { 
+            stopTimer(); // Sicurezza se esce prima
+            showScreen('dashboard-screen'); 
+        }
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
         // --- UTILS ---
@@ -475,7 +549,7 @@
         }
 
         function sendLog(action, details = "") {
-            const sessionRaw = localStorage.getItem('exam_session_v5');
+            const sessionRaw = localStorage.getItem('exam_session_v6');
             if (!sessionRaw && action !== "LOGIN") return;
             
             let userEmail = "Sconosciuto";
@@ -485,16 +559,14 @@
                 try {
                     const data = JSON.parse(sessionRaw);
                     userEmail = data.email;
-                    storedUrl = data.logUrl; // Recupera URL di riserva
+                    storedUrl = data.logUrl;
                 } catch(e) {}
             } else if (action === "LOGIN") {
                 userEmail = document.getElementById('email')?.value || "Login Init";
             }
 
-            // Usa la variabile globale O quella recuperata dalla memoria
             const targetUrl = LOG_URL || storedUrl;
-
-            if(!targetUrl) return; // Se ancora non c'è, rinuncia
+            if(!targetUrl) return;
 
             const payload = {
                 email: userEmail,
