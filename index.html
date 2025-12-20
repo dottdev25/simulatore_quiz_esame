@@ -482,7 +482,7 @@
             const pct = (score / examQuestions.length) * 100;
             document.getElementById('final-msg').innerText = pct >= 90 ? "Eccellente! 🏆" : pct >= 60 ? "Superato. 👍" : "Studiare di più. 📉";
             
-            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Tempo: ${finalTimeString} - Materia: ${currentExamTitle}`);
+            sendLog("QUIZ TERMINATO", `Punteggio: ${score}/${examQuestions.length} - Materia: ${currentExamTitle}`);
 
             const btnErr = document.getElementById('btn-errors');
             const report = document.getElementById('error-report');
